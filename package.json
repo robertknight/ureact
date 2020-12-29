@@ -1,0 +1,22 @@
+{
+  "name": "ureact",
+  "version": "0.1.0",
+  "description": "Small React-like UI library",
+  "main": "build/index.js",
+  "repository": "https://github.com/robertknight/ureact",
+  "author": "Robert Knight <robertknight@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "jsdom": "^16.4.0",
+    "mocha": "^8.2.1",
+    "prettier": "^2.2.1",
+    "sinon": "^9.2.2",
+    "typescript": "^4.1.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write **/*.{js,ts}",
+    "test": "mocha"
+  }
+}
