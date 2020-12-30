@@ -1,4 +1,4 @@
-import { Props, VNode } from "./jsx";
+import { Props, VNode, isValidElement } from "./jsx";
 
 // Internal data structure holding data for most recent render of a VNode into
 // a diff.
@@ -142,6 +142,8 @@ class Root {
 
           if (typeof child === "string" || typeof child === "number") {
             el.append(child.toString());
+          } else if (!isValidElement(child)) {
+            throw new Error("Object is not a valid element");
           } else {
             this._diff(null, child as VNode, el);
           }

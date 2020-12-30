@@ -157,5 +157,11 @@ describe("rendering", () => {
         "<ul><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>"
       );
     });
+
+    it("throws an error if child is not a renderable item", () => {
+      assert.throws(() => {
+        testRender(h("ul", {}, "One", {}, "Two"));
+      }, "Object is not a valid element");
+    });
   });
 });

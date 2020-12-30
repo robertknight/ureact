@@ -15,6 +15,8 @@ export interface VNode {
   key: VNodeKey | null;
 }
 
+export const elementSymbol = Symbol.for("ureactElement");
+
 /**
  * Create a VNode.
  *
@@ -23,6 +25,11 @@ export interface VNode {
  */
 export function jsx(type: NodeType, props: Props, key?: VNodeKey | null) {
   return {
+    // `_tag` is a non-serializable property used to indicate that the object was
+    // created by the `jsx` or `createElement` functions. This prevents objects
+    // from other sources accidentally being used as VNodes.
+    _tag: elementSymbol,
+
     type,
     props,
     key,
@@ -52,4 +59,13 @@ export function createElement(
   }
 
   return jsx(type, props, key);
+}
+
+/**
+ * Return true if `obj` was created by `createElement` or `jsx`.
+ *
+ * See https://reactjs.org/docs/react-api.html#isvalidelement.
+ */
+export function isValidElement(obj: any) {
+  return obj != null && obj._tag === elementSymbol;
 }
