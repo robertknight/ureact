@@ -5,6 +5,21 @@ const { JSDOM } = require("jsdom");
 
 const { createElement: h, render } = require("../build/index");
 
+/**
+ * Attach a numeric tag, starting at 1, to each node in a sequence.
+ *
+ * These tags are used to check that nodes are preserved or not-preserved as
+ * expected across renders.
+ */
+function tagNodes(nodes) {
+  Array.from(nodes).forEach((n, i) => (n.$tag = i + 1));
+}
+
+/** Get an array of tags attached to `nodes` by `tagNodes`. */
+function getTags(nodes) {
+  return Array.from(nodes).map((n) => n.$tag ?? null);
+}
+
 describe("rendering", () => {
   let jsdom;
   let document;
@@ -244,6 +259,186 @@ describe("rendering", () => {
       container.firstChild.click();
 
       sinon.assert.notCalled(callback);
+    });
+
+    it("updates child text nodes", () => {
+      const container = testRender(h("div", {}, "Hello ", "world"));
+
+      const textNodes = [...container.firstChild.childNodes];
+      render(h("div", {}, "Goodbye ", "everyone"), container);
+
+      assert.equal(container.innerHTML, "<div>Goodbye everyone</div>");
+      const newTextNodes = [...container.firstChild.childNodes];
+      assert.deepEqual(textNodes, newTextNodes);
+    });
+
+    it("updates unkeyed children", () => {
+      const container = testRender(
+        h(
+          "div",
+          {},
+          h("a", { href: "https://example.org/" }),
+          h("a", { href: "https://wibble.com/" })
+        )
+      );
+
+      const linkElA = container.querySelectorAll("a")[0];
+      const linkElB = container.querySelectorAll("a")[1];
+      assert.equal(
+        container.innerHTML,
+        '<div><a href="https://example.org/"></a><a href="https://wibble.com/"></a></div>'
+      );
+
+      render(
+        h(
+          "div",
+          {},
+          h("a", { href: "https://foobar.com/" }),
+          h("a", { href: "https://worp.com/" })
+        ),
+        container
+      );
+
+      assert.equal(linkElA.href, "https://foobar.com/");
+      assert.equal(linkElB.href, "https://worp.com/");
+      assert.equal(
+        container.innerHTML,
+        '<div><a href="https://foobar.com/"></a><a href="https://worp.com/"></a></div>'
+      );
+    });
+
+    it("removes element children that are no longer present", () => {
+      const container = testRender(
+        h("div", {}, "Hello ", h("b", {}, "brave new"), "world")
+      );
+      render(h("div", {}, "Hello ", "world"), container);
+      assert.equal(container.innerHTML, "<div>Hello world</div>");
+    });
+
+    it("removes text children that are no longer present", () => {
+      const container = testRender(
+        h("div", {}, "Hello ", "brave new ", "world")
+      );
+      render(h("div", {}, "Hello ", "world"), container);
+      assert.equal(container.innerHTML, "<div>Hello world</div>");
+    });
+
+    it("updates children with matching key", () => {
+      const container = testRender(
+        h(
+          "ul",
+          {},
+          h("li", { key: 1 }, "Item 1"),
+          h("li", { key: 2 }, "Item 2")
+        )
+      );
+      const item1 = container.querySelectorAll("li")[0];
+      const item2 = container.querySelectorAll("li")[1];
+
+      render(
+        h(
+          "ul",
+          {},
+          h("li", { key: 2 }, "Updated Item 2"),
+          h("li", { key: 1 }, "Updated Item 1")
+        ),
+        container
+      );
+      assert.equal(item1.textContent, "Updated Item 1");
+      assert.equal(item2.textContent, "Updated Item 2");
+    });
+
+    it("reorders children with matching keys", () => {
+      const container = testRender(
+        h(
+          "ul",
+          {},
+          h("li", { key: 1 }, "Item 1"),
+          h("li", { key: 2 }, "Item 2")
+        )
+      );
+
+      render(
+        h(
+          "ul",
+          {},
+          h("li", { key: 2 }, "Updated Item 2"),
+          h("li", { key: 1 }, "Updated Item 1")
+        ),
+        container
+      );
+
+      assert.equal(
+        container.innerHTML,
+        "<ul><li>Updated Item 2</li><li>Updated Item 1</li></ul>"
+      );
+    });
+
+    it("inserts new keyed children at correct location", () => {
+      const container = testRender(
+        h("ul", {}, h("li", { key: 1 }, "Item 1"), h("li", {}, "Last Item"))
+      );
+
+      render(
+        h(
+          "ul",
+          {},
+          h("li", { key: 1 }, "Item 1"),
+          h("li", { key: 2 }, "Item 2"),
+          h("li", {}, "Last Item")
+        ),
+        container
+      );
+
+      assert.equal(
+        container.innerHTML,
+        "<ul><li>Item 1</li><li>Item 2</li><li>Last Item</li></ul>"
+      );
+    });
+
+    it("inserts new unkeyed children at correct location", () => {
+      const container = testRender(
+        h(
+          "ul",
+          {},
+          h("li", { key: 1 }, "Item 1"),
+          h("li", { key: 2 }, "Item 2"),
+          h("li", {}, "Last Item")
+        )
+      );
+      const ulEl = container.firstChild;
+      tagNodes(ulEl.childNodes);
+
+      render(
+        h(
+          "ul",
+          {},
+          h("li", { key: 1 }, "Item 1"),
+          h("li", {}, "Middle Item"),
+          h("li", { key: 2 }, "Item 2"),
+          h("li", {}, "Last Item")
+        ),
+        container
+      );
+      assert.equal(
+        container.innerHTML,
+        "<ul><li>Item 1</li><li>Middle Item</li><li>Item 2</li><li>Last Item</li></ul>"
+      );
+      assert.deepEqual(getTags(ulEl.childNodes), [1, 3, 2, null]);
+    });
+
+    it("removes a DOM child if the type changes", () => {
+      const container = testRender(h("p", {}, h("i", {}, "Hello")));
+      render(h("p", {}, h("b", {}, "Hello")), container);
+      assert.equal(container.innerHTML, "<p><b>Hello</b></p>");
+    });
+
+    [false, null].forEach((nullishValue) => {
+      it("removes a conditionally rendered child if condition changes to false", () => {
+        const container = testRender(h("p", {}, h("i", {}, "Hello")));
+        render(h("p", {}, nullishValue), container);
+        assert.equal(container.innerHTML, "<p></p>");
+      });
     });
   });
 });
