@@ -1,7 +1,8 @@
-import { Props, VNode, isValidElement } from "./jsx";
+import { Props, VNode, VNodeChildren, isValidElement } from "./jsx";
 
-// Internal data structure holding data for most recent render of a VNode into
-// a diff.
+/**
+ * Data for a rendered component. This may be a DOM element or custom component.
+ */
 interface Component {
   // Depth of component from root. Used to sort components before a re-render
   depth: number;
@@ -9,7 +10,7 @@ interface Component {
   // VNode that was most recently rendered into this root.
   vnode: VNode;
   // VNode output from most recent render.
-  output: VNode;
+  output: (Component | Text | null)[];
 
   // DOM element produced by rendering this node.
   dom: Element | null;
@@ -30,11 +31,16 @@ function isEventListener(prop: string) {
   return prop.startsWith("on");
 }
 
-function flatten<T>(items: T[]) {
-  if (items.every((it) => !Array.isArray(it))) {
-    return items;
+type VNodeChild = string | boolean | number | null | VNode;
+
+function flatten(children: VNodeChildren): VNodeChild[] {
+  if (!Array.isArray(children)) {
+    return [children];
   }
-  return items.flat();
+  if (children.every((c) => !Array.isArray(c))) {
+    return children as VNodeChild[];
+  }
+  return children.flat() as VNodeChild[];
 }
 
 /**
@@ -112,6 +118,18 @@ function diffElementProps(node: Element, oldProps: Props, newProps: Props) {
   }
 }
 
+function getKey(node: any) {
+  return node?.key ?? null;
+}
+
+function isNullChild(child: VNodeChild) {
+  return child === null || typeof child === "boolean";
+}
+
+function isStringChild(child: VNodeChild) {
+  return typeof child === "string" || typeof child === "number";
+}
+
 /**
  * Render tree root.
  *
@@ -138,47 +156,146 @@ class Root {
    * Render a VNode into the root.
    */
   render(vnode: VNode) {
-    this._diff(this.rootComponent, vnode, this.element);
+    this.rootComponent = this._diff(this.rootComponent, vnode, this.element);
   }
 
   _diff(component: Component | null, vnode: VNode, parent: Element) {
     if (component?.vnode.type === vnode.type) {
+      // Is this a DOM component?
       if (typeof vnode.type === "string") {
+        // Compare DOM properties, attributes and event listeners.
         diffElementProps(component.dom!, component.vnode.props, vnode.props);
+
+        // Compare children.
+        let nonKeyedCount = 0;
+        const newOutput = [];
+        const prevOutput = component.output;
+
+        if (vnode.props.children) {
+          for (let child of flatten(vnode.props.children)) {
+            const childKey = getKey(child);
+            let prevComponent;
+
+            if (childKey !== null) {
+              prevComponent = prevOutput.find((o) => getKey(o) === childKey);
+            } else {
+              let nonKeyedIndex = -1;
+              for (let i = 0; i < prevOutput.length; i++) {
+                const o = prevOutput[i];
+                if (getKey(o) !== null) {
+                  continue;
+                }
+                ++nonKeyedIndex;
+                if (nonKeyedIndex === nonKeyedCount) {
+                  prevComponent = o;
+                  ++nonKeyedCount;
+                }
+              }
+            }
+
+            if (isNullChild(child) && prevComponent === null) {
+              continue;
+            } else if (
+              isStringChild(child) &&
+              prevComponent != null &&
+              "wholeText" in prevComponent
+            ) {
+              prevComponent.data = child!.toString();
+            } else if (
+              isValidElement(child) &&
+              prevComponent != null &&
+              "vnode" in prevComponent &&
+              prevComponent.vnode.type === child.type
+            ) {
+              this._diff(prevComponent, child, component.dom!);
+            } else {
+              if (prevComponent) {
+                this._unmount(prevComponent);
+              }
+              if (isNullChild(child)) {
+                newOutput.push(null);
+              } else if (isStringChild(child)) {
+                const text = component.dom!.append(child!.toString());
+                newOutput.push(component.dom!.lastChild as Text);
+              } else {
+                newOutput.push(
+                  this._renderNewTree(component, child as VNode, component.dom!)
+                );
+              }
+            }
+
+            // If the child has the same type as the matched component, update it.
+            // Otherwise unmount the matched component and render the new one.
+          }
+        }
+
+        // Unmount any existing children that were not matched to a new child.
+
+        component.output = newOutput;
       }
       return component;
+    } else {
+      if (component) {
+        this._unmount(component);
+      }
+      return this._renderNewTree(component, vnode, parent);
     }
+  }
 
+  _renderNewTree(
+    parentComponent: Component | null,
+    vnode: VNode,
+    parent: Element
+  ) {
     const newComponent: Component = {
-      depth: component !== null ? component.depth + 1 : 0,
-      vnode: vnode,
-      output: vnode,
+      depth: (parentComponent?.depth ?? -1) + 1,
+      vnode,
+      output: [],
       dom: null,
     };
-
-    this.rootComponent = newComponent;
 
     if (typeof vnode.type === "string") {
       const el = parent.ownerDocument.createElement(vnode.type);
       diffElementProps(el, {}, vnode.props);
       newComponent.dom = el;
-      parent.appendChild(el);
 
       if (vnode.props.children != null) {
         for (let child of flatten(vnode.props.children)) {
           if (typeof child === "boolean" || child === null) {
+            newComponent.output.push(null);
             continue;
           }
 
           if (typeof child === "string" || typeof child === "number") {
-            el.append(child.toString());
+            const childStr = child.toString();
+            el.append(childStr);
+            newComponent.output.push(el.lastChild as Text);
           } else if (!isValidElement(child)) {
             throw new Error("Object is not a valid element");
           } else {
-            this._diff(null, child as VNode, el);
+            const component = this._renderNewTree(
+              newComponent,
+              child as VNode,
+              el
+            );
+            newComponent.output.push(component);
           }
         }
       }
+
+      // Append the new DOM subtree to the parent element after the subtree
+      // is fully constructed.
+      parent.appendChild(el);
+    }
+
+    return newComponent;
+  }
+
+  _unmount(component: Component | Text) {
+    if ("wholeText" in component) {
+      component.remove();
+    } else {
+      component.dom?.remove();
     }
   }
 }

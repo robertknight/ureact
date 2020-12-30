@@ -1,6 +1,12 @@
-type NodeType = string | Function;
-type VNodeKey = string | number;
-type VNodeChildren = VNode | VNode[];
+export type NodeType = string | Function;
+export type VNodeKey = string | number;
+export type VNodeChildren =
+  | VNode
+  | string
+  | number
+  | boolean
+  | null
+  | VNodeChildren[];
 
 export interface Props {
   children?: VNodeChildren;
@@ -11,7 +17,7 @@ export interface Props {
 // Element produced by a component describing what to render.
 export interface VNode {
   type: NodeType;
-  props: { [name: string]: any };
+  props: Props;
   key: VNodeKey | null;
 }
 
@@ -46,7 +52,7 @@ export function jsx(type: NodeType, props: Props, key?: VNodeKey | null) {
 export function createElement(
   type: NodeType,
   props: Props = {},
-  ...children: VNode[]
+  ...children: VNodeChildren[]
 ) {
   let key = props.key ?? null;
 
@@ -66,6 +72,6 @@ export function createElement(
  *
  * See https://reactjs.org/docs/react-api.html#isvalidelement.
  */
-export function isValidElement(obj: any) {
+export function isValidElement(obj: any): obj is VNode {
   return obj != null && obj._tag === elementSymbol;
 }

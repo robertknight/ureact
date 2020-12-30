@@ -245,5 +245,25 @@ describe("rendering", () => {
 
       sinon.assert.notCalled(callback);
     });
+
+    it("updates properties of children", () => {
+      const container = testRender(
+        h("div", {}, h("a", { href: "https://example.org/" }))
+      );
+
+      const linkEl = container.firstChild.firstChild;
+      assert.equal(
+        container.innerHTML,
+        '<div><a href="https://example.org/"></a></div>'
+      );
+
+      render(h("div", {}, h("a", { href: "https://foobar.com/" })), container);
+
+      assert.equal(linkEl.href, "https://foobar.com/");
+      assert.equal(
+        container.innerHTML,
+        '<div><a href="https://foobar.com/"></a></div>'
+      );
+    });
   });
 });
