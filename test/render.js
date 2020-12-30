@@ -164,4 +164,86 @@ describe("rendering", () => {
       }, "Object is not a valid element");
     });
   });
+
+  describe("DOM element re-rendering", () => {
+    it("updates properties of existing element", () => {
+      const container = testRender(h("a", { href: "https://example.org/" }));
+      const child = container.firstChild;
+
+      assert.equal(child.href, "https://example.org/");
+
+      render(h("a", { href: "https://foobar.com/" }), container);
+
+      assert.equal(container.firstChild, child);
+      assert.equal(child.href, "https://foobar.com/");
+    });
+
+    it("removes properties that are no longer present", () => {
+      const container = testRender(
+        h("a", { href: "https://example.org/", tabIndex: 42 })
+      );
+      const child = container.firstChild;
+
+      assert.equal(child.tabIndex, 42);
+
+      render(h("a", { href: "https://foobar.com/" }), container);
+
+      assert.equal(child.tabIndex, 0);
+    });
+
+    it("updates attributes of existing element", () => {
+      const container = testRender(h("div", { someAttr: 1 }));
+      const child = container.firstChild;
+
+      assert.equal(child.getAttribute("someAttr"), "1");
+
+      render(h("div", { someAttr: 2 }), container);
+
+      assert.equal(container.firstChild, child);
+      assert.equal(child.getAttribute("someAttr"), "2");
+    });
+
+    it("removes attributes that are no longer present", () => {
+      const container = testRender(h("div", { someAttr: 1 }));
+      const child = container.firstChild;
+
+      assert.equal(child.getAttribute("someAttr"), "1");
+
+      render(h("div"), container);
+
+      assert.equal(container.firstChild, child);
+      assert.equal(child.getAttribute("someAttr"), null);
+    });
+
+    it("updates event listeners of existing element", () => {
+      const callback1 = sinon.stub();
+      const callback2 = sinon.stub();
+
+      const container = testRender(h("button", { onClick: callback1 }));
+
+      container.firstChild.click();
+      sinon.assert.calledOnce(callback1);
+
+      render(h("button", { onClick: callback2 }), container);
+      container.firstChild.click();
+
+      sinon.assert.calledOnce(callback1);
+      sinon.assert.calledOnce(callback2);
+    });
+
+    it("removes event listeners that are no longer present", () => {
+      const callback = sinon.stub();
+
+      const container = testRender(h("button", { onClick: callback }));
+
+      container.firstChild.click();
+      sinon.assert.calledOnce(callback);
+
+      callback.resetHistory();
+      render(h("button"), container);
+      container.firstChild.click();
+
+      sinon.assert.notCalled(callback);
+    });
+  });
 });

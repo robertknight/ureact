@@ -40,7 +40,11 @@ function flatten<T>(items: T[]) {
 /**
  * Create or update an event listener on a DOM element.
  */
-function setEventListener(node: Element, prop: string, value: null) {
+function setEventListener(
+  node: Element,
+  prop: string,
+  value: (e: Event) => any
+) {
   const ureactEl = node as UReactElement;
   const listeners =
     ureactEl._ureactListeners || (ureactEl._ureactListeners = {});
@@ -58,6 +62,19 @@ function setEventListener(node: Element, prop: string, value: null) {
     node.addEventListener(eventName, (event) => listeners[eventName]?.(event));
   }
   listeners[eventName] = value;
+}
+
+function unsetProperty(node: Element, prop: string) {
+  if (isEventListener(prop)) {
+    const noopListener = () => {};
+    setEventListener(node, prop, noopListener);
+  }
+
+  if (prop in node) {
+    (node as any)[prop] = "";
+  } else {
+    node.removeAttribute(prop);
+  }
 }
 
 /**
@@ -82,6 +99,12 @@ function setProperty(node: Element, prop: string, value: any) {
  * a new VDOM node.
  */
 function diffElementProps(node: Element, oldProps: Props, newProps: Props) {
+  for (let prop in oldProps) {
+    if (prop !== "children" && !(prop in newProps)) {
+      unsetProperty(node, prop);
+    }
+  }
+
   for (let prop in newProps) {
     if (prop !== "children") {
       setProperty(node, prop, newProps[prop]);
@@ -119,6 +142,13 @@ class Root {
   }
 
   _diff(component: Component | null, vnode: VNode, parent: Element) {
+    if (component?.vnode.type === vnode.type) {
+      if (typeof vnode.type === "string") {
+        diffElementProps(component.dom!, component.vnode.props, vnode.props);
+      }
+      return component;
+    }
+
     const newComponent: Component = {
       depth: component !== null ? component.depth + 1 : 0,
       vnode: vnode,
