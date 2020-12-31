@@ -441,4 +441,66 @@ describe("rendering", () => {
       });
     });
   });
+
+  function Button({ label }) {
+    return h("button", {}, label);
+  }
+
+  describe("custom component rendering", () => {
+    it("renders a custom component", () => {
+      const container = testRender(h(Button, { label: "Click me" }));
+      assert.equal(container.innerHTML, "<button>Click me</button>");
+    });
+
+    it("renders a custom component with children", () => {
+      function Button({ children }) {
+        return h("button", {}, children);
+      }
+      const container = testRender(h(Button, {}, "Click me"));
+      assert.equal(container.innerHTML, "<button>Click me</button>");
+    });
+
+    it("renders a tree of custom components", () => {
+      function Parent() {
+        return h(
+          "div",
+          {},
+          h(Button, { label: "First" }),
+          h(Button, { label: "Second" })
+        );
+      }
+      const container = testRender(h(Parent));
+      assert.equal(
+        container.innerHTML,
+        "<div><button>First</button><button>Second</button></div>"
+      );
+    });
+
+    it("renders a deeply nested tree of custom components", () => {
+      const ThirdLevel = ({ children }) => h("p", {}, children);
+      const SecondLevel = ({ children }) => h(ThirdLevel, {}, children);
+      const FirstLevel = ({ children }) => h(SecondLevel, {}, children);
+
+      const container = testRender(h(FirstLevel, {}, "Hello world"));
+
+      assert.equal(container.innerHTML, "<p>Hello world</p>");
+    });
+  });
+
+  describe("custom component re-rendering", () => {
+    it("updates a custom component", () => {
+      const container = testRender(h(Button, { label: "Click me" }));
+      render(h(Button, { label: "Updated" }), container);
+      assert.equal(container.innerHTML, "<button>Updated</button>");
+    });
+
+    it("updates a custom component with children", () => {
+      function Button({ children }) {
+        return h("button", {}, children);
+      }
+      const container = testRender(h(Button, {}, "Click me"));
+      render(h(Button, {}, "Updated"), container);
+      assert.equal(container.innerHTML, "<button>Updated</button>");
+    });
+  });
 });

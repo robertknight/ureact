@@ -311,6 +311,16 @@ class Root {
         }
 
         component.output = newOutput;
+      } else if (typeof vnode.type === "function") {
+        // Update custom component.
+        const newOutput = vnode.type.call(null, vnode.props);
+        const result = this._diff(
+          // TODO - Handle components rendering non-vnode output.
+          component.output[0] as Component,
+          newOutput,
+          parent
+        );
+        component.output[0] = result;
       }
       return component;
     } else {
@@ -359,6 +369,8 @@ class Root {
 
       if (vnode.props.children != null) {
         for (let child of flattenChildren(vnode.props.children)) {
+          // TESTING
+          console.log("children", vnode.props.children, "child", child);
           const childComponent = this._renderDomChild(
             newComponent.depth,
             child
@@ -370,6 +382,13 @@ class Root {
           }
         }
       }
+    } else if (typeof vnode.type === "function") {
+      const renderResult = vnode.type.call(null, vnode.props);
+      const renderOutput = this._renderTree(newComponent.depth, renderResult);
+      newComponent.output.push(renderOutput);
+
+      const childDom = getOutputDom(renderOutput);
+      newComponent.dom = childDom as Element | null;
     }
 
     return newComponent;
