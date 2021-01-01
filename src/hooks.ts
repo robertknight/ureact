@@ -21,7 +21,7 @@ export class HookState {
     this._index = -1;
   }
 
-  useState<S>(initialState: S) {
+  useState<S>(initialState: S | (() => S)) {
     ++this._index;
     let hook = this._hooks[this._index];
     if (!hook) {
@@ -29,7 +29,11 @@ export class HookState {
         hook.value = newState;
         this._scheduleUpdate();
       };
-      hook = { type: "state", value: initialState, setter };
+      const value =
+        typeof initialState === "function"
+          ? (initialState as any)()
+          : initialState;
+      hook = { type: "state", value, setter };
       this._hooks.push(hook);
     }
     return [hook.value, hook.setter];
