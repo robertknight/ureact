@@ -60,7 +60,12 @@ export function createElement(
   if (key !== null) {
     delete props.key;
   }
-  if (children.length > 0) {
+
+  // For consistency with `React.createElement`, if only 3 arguments are passed
+  // then `children` is the value of the third argument.
+  if (children.length === 1) {
+    props.children = arguments[2];
+  } else if (children.length > 0) {
     props.children = children;
   }
 

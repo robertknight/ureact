@@ -15,7 +15,17 @@ describe("JSX", () => {
       });
     });
 
-    it("sets `children` prop", () => {
+    it("sets `children` prop to third arg if there are exactly 3 args", () => {
+      const vnode = createElement("div", {}, "child");
+      assert.deepEqual(vnode, {
+        _tag: elementSymbol,
+        type: "div",
+        props: { children: "child" },
+        key: null,
+      });
+    });
+
+    it("sets `children` prop to array if there are more than 3 args", () => {
       const vnode = createElement("div", {}, "childA", "childB");
       assert.deepEqual(vnode, {
         _tag: elementSymbol,
