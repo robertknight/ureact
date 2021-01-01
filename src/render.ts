@@ -9,9 +9,6 @@ type ChildOutput = Component | Text | null;
  * Data for a rendered component. This may be a DOM element or custom component.
  */
 interface Component {
-  // Depth of component from root. Used to sort components before a re-render
-  depth: number;
-
   // VNode that was most recently rendered into this root.
   vnode: VNodeChild;
   // VNode output from most recent render.
@@ -244,7 +241,7 @@ class Root {
     if (component) {
       this._unmount(component);
     }
-    const newComponent = this._renderTree(component?.depth ?? 0, vnode);
+    const newComponent = this._renderTree(vnode);
     if (newComponent !== component && newComponent.dom) {
       parent.append(newComponent.dom);
     }
@@ -346,7 +343,7 @@ class Root {
             this._unmount(prevComponent);
           }
 
-          const childComponent = this._renderDomChild(component.depth, child);
+          const childComponent = this._renderDomChild(child);
           newOutput.push(childComponent);
 
           const childDom = getOutputDom(childComponent);
@@ -375,7 +372,7 @@ class Root {
   /**
    * Render a child of a DOM component.
    */
-  _renderDomChild(parentDepth: number, child: VNodeChild): ChildOutput {
+  _renderDomChild(child: VNodeChild): ChildOutput {
     if (typeof child === "boolean" || child === null) {
       return null;
     }
@@ -384,16 +381,15 @@ class Root {
     } else if (!isValidElement(child)) {
       throw new Error("Object is not a valid element");
     } else {
-      return this._renderTree(parentDepth, child as VNode);
+      return this._renderTree(child as VNode);
     }
   }
 
   /**
    * Render a component tree beginning at `vnode`.
    */
-  _renderTree(parentDepth: number, vnode: VNodeChild): Component {
+  _renderTree(vnode: VNodeChild): Component {
     const newComponent: Component = {
-      depth: parentDepth + 1,
       vnode,
       output: [],
       dom: null,
@@ -412,10 +408,7 @@ class Root {
 
       if (vnode.props.children != null) {
         for (let child of flattenChildren(vnode.props.children)) {
-          const childComponent = this._renderDomChild(
-            newComponent.depth,
-            child
-          );
+          const childComponent = this._renderDomChild(child);
           newComponent.output.push(childComponent);
           const childDom = getOutputDom(childComponent);
           if (childDom) {
@@ -425,11 +418,9 @@ class Root {
       }
     } else if (typeof vnode.type === "function") {
       const renderResult = vnode.type.call(null, vnode.props);
-      const renderOutput = this._renderTree(newComponent.depth, renderResult);
+      const renderOutput = this._renderTree(renderResult);
       newComponent.output.push(renderOutput);
-
-      const childDom = getOutputDom(renderOutput);
-      newComponent.dom = childDom as Element | null;
+      newComponent.dom = getOutputDom(renderOutput);
     }
 
     return newComponent;
