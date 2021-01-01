@@ -329,12 +329,18 @@ class Root {
             // If this is a keyed child, ensure it is located in the correct
             // position.
             if (childKey !== null) {
-              el.insertBefore(
-                prevComponent.dom!,
-                lastDomOutput ? lastDomOutput.nextSibling : el.firstChild
-              );
+              for (let node of topLevelDomNodes(prevComponent)) {
+                el.insertBefore(
+                  node,
+                  lastDomOutput ? lastDomOutput.nextSibling : el.firstChild
+                );
+                lastDomOutput = node;
+              }
             }
-            lastDomOutput = prevComponent.dom;
+
+            if (prevComponent.dom) {
+              lastDomOutput = prevComponent.dom;
+            }
             updatedPrevComponent = true;
           }
         }

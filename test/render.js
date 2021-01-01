@@ -577,5 +577,67 @@ describe("rendering", () => {
         "<li>Three</li><li>four</li><li>five</li>"
       );
     });
+
+    it("updates positions of keyed custom component children", () => {
+      function Button({ children }) {
+        return h("button", {}, children);
+      }
+      const container = testRender(
+        h("div", {}, h(Button, { key: 1 }, "One"), h(Button, { key: 2 }, "Two"))
+      );
+
+      const buttonOne = container.querySelectorAll("button")[0];
+      const buttonTwo = container.querySelectorAll("button")[1];
+
+      // Render a new tree, swapping the order of the buttons and updating their
+      // labels.
+      render(
+        h(
+          "div",
+          {},
+          h(Button, { key: 2 }, "Three"),
+          h(Button, { key: 1 }, "Four")
+        ),
+        container
+      );
+
+      assert.equal(
+        container.innerHTML,
+        "<div><button>Three</button><button>Four</button></div>"
+      );
+      assert.equal(buttonOne.textContent, "Four");
+      assert.equal(buttonOne.parentElement.parentElement, container);
+      assert.equal(buttonTwo.textContent, "Three");
+      assert.equal(buttonTwo.parentElement.parentElement, container);
+    });
+
+    it("updates non-keyed custom component children", () => {
+      function Button({ children }) {
+        return h("button", {}, children);
+      }
+      const container = testRender(
+        h("div", {}, h(Button, {}, "One"), h(Button, {}, "Two"))
+      );
+
+      const buttonOne = container.querySelectorAll("button")[0];
+      const buttonTwo = container.querySelectorAll("button")[1];
+
+      // Render a new tree, swapping the order of the buttons.
+      // Since no keys are used, the existing buttons will be updated rather
+      // than swapping their DOM elements.
+      render(
+        h("div", {}, h(Button, {}, "Two"), h(Button, {}, "One")),
+        container
+      );
+
+      assert.equal(
+        container.innerHTML,
+        "<div><button>Two</button><button>One</button></div>"
+      );
+      assert.equal(buttonOne.textContent, "Two");
+      assert.equal(buttonOne.parentElement.parentElement, container);
+      assert.equal(buttonTwo.textContent, "One");
+      assert.equal(buttonTwo.parentElement.parentElement, container);
+    });
   });
 });
