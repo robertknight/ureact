@@ -1,9 +1,13 @@
 import { Props, VNode, VNodeChildren, isValidElement } from "./jsx";
+import { HookState, setHookState } from "./hooks";
 
 /**
  * Backing tree for a rendered vnode.
  */
 interface Component {
+  parent: Component | null;
+  depth: number;
+
   /** The vnode that produced this component. */
   vnode: VNodeChild;
 
@@ -22,6 +26,8 @@ interface Component {
    * DOM node produced by rendering `vnode`.
    */
   dom: Element | Text | null;
+
+  hooks: HookState | null;
 }
 
 // Properties added by existing DOM elements into which a UReact component tree
@@ -165,6 +171,14 @@ function topLevelDomNodes(c: Component): (Element | Text)[] {
   return c.output.flatMap(topLevelDomNodes);
 }
 
+function getParentDom(c: Component) {
+  let parent = c.parent;
+  while (parent && !parent.dom) {
+    parent = parent.parent;
+  }
+  return parent ? parent.dom : null;
+}
+
 /**
  * Render tree root.
  *
@@ -177,6 +191,7 @@ class Root {
 
   private _rootComponent: Component | null;
   private _document: Document;
+  private _pendingUpdate: Set<Component>;
 
   /**
    * Create a root which renders into `container`.
@@ -185,8 +200,10 @@ class Root {
     (container as UReactRootElement)._ureactRoot = this;
 
     this.container = container;
+
     this._rootComponent = null;
     this._document = container.ownerDocument;
+    this._pendingUpdate = new Set();
   }
 
   /**
@@ -194,6 +211,7 @@ class Root {
    */
   render(vnode: VNodeChild) {
     this._rootComponent = this._diff(
+      null,
       this._rootComponent,
       vnode,
       this.container
@@ -204,6 +222,7 @@ class Root {
    * Render a single VNode
    */
   _diff(
+    parentComponent: Component | null,
     component: Component | null,
     vnode: VNodeChild,
     parent: Element
@@ -226,18 +245,22 @@ class Root {
         prevVnode.type === vnode.type
       ) {
         if (typeof vnode.type === "string") {
-          // Update DOM component.
           const el = component.dom as Element;
           diffElementProps(el, prevVnode.props, vnode.props);
           component.output = this._diffList(
+            component,
             component.output,
             vnode.props.children ?? null,
             el
           );
         } else if (typeof vnode.type === "function") {
-          // Update custom component.
-          const result = vnode.type.call(null, vnode.props);
-          component.output = this._diffList(component.output, result, parent);
+          const result = this._renderCustom(vnode, component);
+          component.output = this._diffList(
+            parentComponent,
+            component.output,
+            result,
+            parent
+          );
         }
         typeMatched = true;
       }
@@ -252,7 +275,7 @@ class Root {
 
     // If there is no existing component or it has a different type, render it
     // from scratch.
-    const newComponent = this._renderTree(vnode);
+    const newComponent = this._renderTree(parentComponent, vnode);
     if (newComponent !== component) {
       topLevelDomNodes(newComponent).forEach((node) => parent.append(node));
     }
@@ -266,9 +289,10 @@ class Root {
    * component VNode.
    */
   _diffList(
+    parentComponent: Component | null,
     prevOutput: Component[],
     vnodes: VNodeChildren,
-    el: Element
+    parentElement: Element
   ): Component[] {
     const newOutput = [];
     const unmatchedOutput = new Set(prevOutput);
@@ -303,17 +327,22 @@ class Root {
         let childComponent;
         if (prevComponent) {
           unmatchedOutput.delete(prevComponent);
-          childComponent = this._diff(prevComponent, child, el);
+          childComponent = this._diff(
+            parentComponent,
+            prevComponent,
+            child,
+            parentElement
+          );
         } else {
-          childComponent = this._renderTree(child);
+          childComponent = this._renderTree(parentComponent, child);
         }
 
         // Ensure the output is in the correct position in the DOM.
         newOutput.push(childComponent);
         for (let node of topLevelDomNodes(childComponent)) {
-          el.insertBefore(
+          parentElement.insertBefore(
             node,
-            lastDomOutput ? lastDomOutput.nextSibling : el.firstChild
+            lastDomOutput ? lastDomOutput.nextSibling : parentElement.firstChild
           );
           lastDomOutput = node;
         }
@@ -339,11 +368,14 @@ class Root {
   /**
    * Render a component tree beginning at `vnode`.
    */
-  _renderTree(vnode: VNodeChild): Component {
+  _renderTree(parent: Component | null, vnode: VNodeChild): Component {
     const newComponent: Component = {
+      parent,
+      depth: parent ? parent.depth + 1 : 0,
       vnode,
       output: [],
       dom: null,
+      hooks: null,
     };
 
     if (isEmptyVNode(vnode)) {
@@ -359,7 +391,7 @@ class Root {
 
       if (vnode.props.children != null) {
         for (let child of flattenChildren(vnode.props.children)) {
-          const childComponent = this._renderTree(child);
+          const childComponent = this._renderTree(newComponent, child);
           newComponent.output.push(childComponent);
           topLevelDomNodes(childComponent).forEach((node) =>
             element.append(node)
@@ -367,13 +399,62 @@ class Root {
         }
       }
     } else if (typeof vnode.type === "function") {
-      const result = vnode.type.call(null, vnode.props);
+      const result = this._renderCustom(vnode, newComponent);
       newComponent.output = Array.isArray(result)
-        ? result.map((r) => this._renderTree(r))
-        : [this._renderTree(result)];
+        ? result.map((r) => this._renderTree(newComponent, r))
+        : [this._renderTree(newComponent, result)];
     }
 
     return newComponent;
+  }
+
+  _renderCustom(vnode: VNode, component: Component) {
+    if (!component.hooks) {
+      component.hooks = new HookState(() => {
+        this._scheduleUpdate(component);
+      });
+    }
+    this._pendingUpdate.delete(component);
+    setHookState(component.hooks);
+
+    const result = (vnode.type as Function).call(null, vnode.props);
+
+    setHookState(null);
+    return result;
+  }
+
+  _scheduleUpdate(component: Component) {
+    const isScheduled = this._pendingUpdate.size > 0;
+    if (!this._pendingUpdate.has(component)) {
+      this._pendingUpdate.add(component);
+    }
+    if (!isScheduled) {
+      queueMicrotask(() => this._flushUpdates());
+    }
+  }
+
+  _flushUpdates() {
+    if (this._pendingUpdate.size === 0) {
+      return;
+    }
+
+    const pending = [...this._pendingUpdate];
+    pending.sort((a, b) => a.depth - b.depth);
+
+    for (let component of pending) {
+      if (!this._pendingUpdate.has(component)) {
+        // Component is a child of one higher up the tree that was already
+        // re-rendered.
+        continue;
+      }
+
+      this._diff(
+        component.parent,
+        component,
+        component.vnode,
+        (getParentDom(component) as Element) || this.container
+      );
+    }
   }
 
   _unmount(component: Component) {

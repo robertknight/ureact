@@ -1,6 +1,5 @@
 const { assert } = require("chai");
 const sinon = require("sinon");
-
 const { JSDOM } = require("jsdom");
 
 const { createElement: h, render } = require("../build/index");
