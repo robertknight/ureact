@@ -20,6 +20,9 @@ function getTags(nodes) {
   return Array.from(nodes).map((n) => n.$tag ?? null);
 }
 
+// VNode values that render no output.
+const nullishValues = [null, false, true];
+
 describe("rendering", () => {
   let jsdom;
   let document;
@@ -38,6 +41,29 @@ describe("rendering", () => {
     render(vnode, container);
     return container;
   };
+
+  describe("empty VNode rendering", () => {
+    nullishValues.forEach((value) => {
+      it(`"${value}" renders nothing`, () => {
+        const container = testRender(null);
+        assert.equal(container.innerHTML, "");
+      });
+    });
+  });
+
+  describe("DOM text rendering", () => {
+    it("renders a text node", () => {
+      const container = testRender("Hello world");
+      assert.equal(container.innerHTML, "Hello world");
+    });
+
+    it("updates a text node", () => {
+      const container = testRender("Hello world");
+      const text = container.firstChild;
+      render("Goodbye", container);
+      assert.equal(text.data, "Goodbye");
+    });
+  });
 
   describe("DOM element rendering", () => {
     it("creates a DOM element", () => {
@@ -148,14 +174,11 @@ describe("rendering", () => {
       assert.equal(container.innerHTML, "<p>Hello world</p>");
     });
 
-    it("ignores `false` children", () => {
-      const container = testRender(h("p", {}, "Hello", false, " world"));
-      assert.equal(container.innerHTML, "<p>Hello world</p>");
-    });
-
-    it("ignores `null` children", () => {
-      const container = testRender(h("p", {}, "Hello", null, " world"));
-      assert.equal(container.innerHTML, "<p>Hello world</p>");
+    nullishValues.forEach((value) => {
+      it(`ignores nullish children (${value})`, () => {
+        const container = testRender(h("p", {}, "Hello", value, " world"));
+        assert.equal(container.innerHTML, "<p>Hello world</p>");
+      });
     });
 
     it("renders array children", () => {
@@ -433,7 +456,7 @@ describe("rendering", () => {
       assert.equal(container.innerHTML, "<p><b>Hello</b></p>");
     });
 
-    [false, null].forEach((nullishValue) => {
+    nullishValues.forEach((nullishValue) => {
       it("removes a conditionally rendered child if condition changes to false", () => {
         const container = testRender(h("p", {}, h("i", {}, "Hello")));
         render(h("p", {}, nullishValue), container);
@@ -450,6 +473,20 @@ describe("rendering", () => {
     it("renders a custom component", () => {
       const container = testRender(h(Button, { label: "Click me" }));
       assert.equal(container.innerHTML, "<button>Click me</button>");
+    });
+
+    nullishValues.forEach((nullishValue) => {
+      it(`renders a custom component that returns ${nullishValue}`, () => {
+        const EmptyComponent = () => nullishValue;
+        const container = testRender(h(EmptyComponent));
+        assert.equal(container.innerHTML, "");
+      });
+    });
+
+    it("renders a custom component that returns a string", () => {
+      const TextComponent = ({ text }) => text;
+      const container = testRender(h(TextComponent, { text: "Hello world" }));
+      assert.equal(container.innerHTML, "Hello world");
     });
 
     it("renders a custom component with children", () => {
