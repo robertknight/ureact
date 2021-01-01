@@ -252,5 +252,49 @@ describe("hooks", () => {
       await delay(0);
       assert.equal(effectCount, 2);
     });
+
+    it("runs cleanup when component is unmounted", async () => {
+      const items = [];
+      const Widget = () => {
+        useEffect(() => {
+          ++effectCount;
+          items.push(effectCount);
+          return () => {
+            items.length = 0;
+          };
+        });
+        return "Hello world";
+      };
+
+      const container = testRender(h(Widget));
+      await delay(0);
+      assert.deepEqual(items, [1]);
+
+      render(h(null), container);
+      assert.deepEqual(items, []);
+    });
+
+    it("runs cleanup when effect is run a second time", async () => {
+      let items = [];
+      const Widget = () => {
+        useEffect(() => {
+          ++effectCount;
+          items.push(effectCount);
+          return () => {
+            items = items.filter((it) => it !== effectCount);
+          };
+        });
+        return "Hello world";
+      };
+
+      const container = testRender(h(Widget));
+      await delay(0);
+
+      render(h(Widget), container);
+      await delay(0);
+
+      assert.equal(effectCount, 2);
+      assert.deepEqual(items, [2]);
+    });
   });
 });

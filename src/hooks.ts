@@ -11,10 +11,13 @@ interface RefHook<T> {
   current: T;
 }
 
+type EffectCleanup = (() => void) | void;
+
 interface EffectHook {
   type: "effect";
   deps: any[] | null;
-  pendingEffect: (() => void) | null;
+  cleanup: (() => void) | null;
+  pendingEffect: (() => EffectCleanup) | null;
 }
 
 type Hook = EffectHook | RefHook<any> | StateHook<any>;
@@ -48,23 +51,37 @@ export class HookState {
   runEffects() {
     for (let hook of this._hooks) {
       if (hook.type === "effect" && hook.pendingEffect) {
-        hook.pendingEffect();
+        hook.cleanup = hook.pendingEffect() || null;
         hook.pendingEffect = null;
       }
     }
   }
 
   cleanup() {
-    // TODO - Run cleanup for effect hooks.
+    for (let hook of this._hooks) {
+      if (hook.type === "effect" && hook.cleanup) {
+        hook.cleanup();
+        hook.cleanup = null;
+      }
+    }
   }
 
   useEffect(effect: () => void, deps?: any[]) {
     let hook = this._nextHook<EffectHook>();
     if (!hook) {
-      hook = { type: "effect", pendingEffect: effect, deps: deps ?? null };
+      hook = {
+        type: "effect",
+        pendingEffect: effect,
+        deps: deps ?? null,
+        cleanup: null,
+      };
       this._hooks.push(hook);
       this._scheduleEffects();
     } else if (!deps || !hook.deps || !shallowEqual(hook.deps, deps)) {
+      if (hook.cleanup) {
+        hook.cleanup();
+        hook.cleanup = null;
+      }
       hook.pendingEffect = effect;
       this._scheduleEffects();
     }
