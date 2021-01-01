@@ -6,6 +6,7 @@ const {
   createElement: h,
   render,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } = require("../build/index");
@@ -295,6 +296,30 @@ describe("hooks", () => {
 
       assert.equal(effectCount, 2);
       assert.deepEqual(items, [2]);
+    });
+  });
+
+  describe("useMemo", () => {
+    it("recomputes value when dependencies change", () => {
+      let calcCount = 0;
+      const Widget = ({ value }) => {
+        const squared = useMemo(() => {
+          ++calcCount;
+          return value * value;
+        }, [value]);
+        return h("div", {}, squared);
+      };
+
+      const container = testRender(h(Widget, { value: 2 }));
+      assert.equal(container.innerHTML, "<div>4</div>");
+
+      render(h(Widget, { value: 2 }), container);
+      assert.equal(calcCount, 1);
+      assert.equal(container.innerHTML, "<div>4</div>");
+
+      render(h(Widget, { value: 4 }), container);
+      assert.equal(calcCount, 2);
+      assert.equal(container.innerHTML, "<div>16</div>");
     });
   });
 });

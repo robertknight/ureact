@@ -11,6 +11,12 @@ interface RefHook<T> {
   current: T;
 }
 
+interface MemoHook<T> {
+  type: "memo";
+  result: T;
+  deps: any[];
+}
+
 type EffectCleanup = (() => void) | void;
 
 interface EffectHook {
@@ -20,7 +26,7 @@ interface EffectHook {
   pendingEffect: (() => EffectCleanup) | null;
 }
 
-type Hook = EffectHook | RefHook<any> | StateHook<any>;
+type Hook = EffectHook | MemoHook<any> | RefHook<any> | StateHook<any>;
 
 function shallowEqual(a: any[], b: any[]) {
   return (a.length === b.length) === a.every((v, i) => b[i] === v);
@@ -87,6 +93,22 @@ export class HookState {
     }
   }
 
+  useMemo<T>(callback: () => T, deps: any[]) {
+    let hook = this._nextHook<MemoHook<T>>();
+    if (!hook) {
+      hook = {
+        type: "memo",
+        result: callback(),
+        deps,
+      };
+      this._hooks.push(hook);
+    } else if (!shallowEqual(hook.deps, deps)) {
+      hook.result = callback();
+      hook.deps = deps;
+    }
+    return hook.result;
+  }
+
   useState<S>(initialState: S | (() => S)) {
     let hook = this._nextHook<StateHook<S>>();
     if (!hook) {
@@ -131,6 +153,10 @@ function getHookState() {
 
 export function useEffect(effect: () => void, deps?: any[]) {
   return getHookState().useEffect(effect, deps);
+}
+
+export function useMemo<T>(callback: () => T, deps: any[]) {
+  return getHookState().useMemo(callback, deps);
 }
 
 export function useRef<T>(initialValue: T) {
