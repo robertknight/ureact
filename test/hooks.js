@@ -2,7 +2,12 @@ const { assert } = require("chai");
 const sinon = require("sinon");
 const { JSDOM } = require("jsdom");
 
-const { useState, createElement: h, render } = require("../build/index");
+const {
+  createElement: h,
+  render,
+  useRef,
+  useState,
+} = require("../build/index");
 
 describe("hooks", () => {
   let jsdom;
@@ -116,6 +121,20 @@ describe("hooks", () => {
 
       await delay(0);
       assert.equal(container.innerHTML, "<button>2</button>");
+    });
+  });
+
+  describe("useRef", () => {
+    it("returns a value that persists between renders", () => {
+      let counter = 0;
+      const Widget = () => {
+        const value = useRef(++counter);
+        return h("div", {}, value.current);
+      };
+      const container = testRender(h(Widget));
+      render(h(Widget), container);
+      render(h(Widget), container);
+      assert.equal(container.innerHTML, "<div>1</div>");
     });
   });
 });
