@@ -5,6 +5,7 @@ const { JSDOM } = require("jsdom");
 const {
   createElement: h,
   render,
+  useEffect,
   useRef,
   useState,
 } = require("../build/index");
@@ -178,6 +179,78 @@ describe("hooks", () => {
       render(h(Widget), container);
       render(h(Widget), container);
       assert.equal(container.innerHTML, "<div>1</div>");
+    });
+  });
+
+  describe("useEffect", () => {
+    let effectCount = 0;
+
+    beforeEach(() => {
+      effectCount = 0;
+    });
+
+    it("schedules a callback that runs after rendering", async () => {
+      const Widget = () => {
+        useEffect(() => {
+          ++effectCount;
+        });
+        return "Hello world";
+      };
+
+      const container = testRender(h(Widget));
+      assert.equal(effectCount, 0);
+      await delay(0);
+      assert.equal(effectCount, 1);
+
+      render(h(Widget), container);
+      assert.equal(effectCount, 1);
+      await delay(0);
+      assert.equal(effectCount, 2);
+    });
+
+    it("never re-runs effects with no dependencies", async () => {
+      const Widget = () => {
+        useEffect(() => {
+          ++effectCount;
+        }, []);
+        return "Hello world";
+      };
+
+      const container = testRender(h(Widget));
+      assert.equal(effectCount, 0);
+      await delay(0);
+      assert.equal(effectCount, 1);
+
+      render(h(Widget), container);
+      assert.equal(effectCount, 1);
+      await delay(0);
+      assert.equal(effectCount, 1);
+    });
+
+    it("only re-runs effects when dependencies change", async () => {
+      const Widget = ({ tag }) => {
+        useEffect(() => {
+          ++effectCount;
+        }, [tag]);
+        return "Hello world";
+      };
+
+      const container = testRender(h(Widget, { tag: 1 }));
+      assert.equal(effectCount, 0);
+      await delay(0);
+      assert.equal(effectCount, 1);
+
+      // Re-render without changing effect dependencies.
+      render(h(Widget, { tag: 1 }), container);
+      assert.equal(effectCount, 1);
+      await delay(0);
+      assert.equal(effectCount, 1);
+
+      // Re-render with a change to effect dependencies.
+      render(h(Widget, { tag: 2 }), container);
+      assert.equal(effectCount, 1);
+      await delay(0);
+      assert.equal(effectCount, 2);
     });
   });
 });

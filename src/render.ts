@@ -198,6 +198,7 @@ class Root {
 
   private _rootComponent: Component | null;
   private _document: Document;
+  private _pendingEffects: Set<Component>;
   private _pendingUpdate: Set<Component>;
 
   /**
@@ -210,6 +211,7 @@ class Root {
 
     this._rootComponent = null;
     this._document = container.ownerDocument;
+    this._pendingEffects = new Set();
     this._pendingUpdate = new Set();
   }
 
@@ -420,9 +422,10 @@ class Root {
 
   _renderCustom(vnode: VNode, component: Component) {
     if (!component.hooks) {
-      component.hooks = new HookState(() => {
-        this._scheduleUpdate(component);
-      });
+      component.hooks = new HookState(
+        () => this._scheduleUpdate(component),
+        () => this._scheduleEffects(component)
+      );
     }
     this._pendingUpdate.delete(component);
     setHookState(component.hooks);
@@ -431,6 +434,28 @@ class Root {
 
     setHookState(null);
     return result;
+  }
+
+  _scheduleEffects(component: Component) {
+    const isScheduled = this._pendingEffects.size > 0;
+    if (!this._pendingEffects.has(component)) {
+      this._pendingEffects.add(component);
+    }
+    if (!isScheduled) {
+      // TODO - Use `requestAnimationFrame` or another method that will run
+      // after rendering.
+      queueMicrotask(() => this._flushEffects());
+    }
+  }
+
+  _flushEffects() {
+    if (this._pendingEffects.size === 0) {
+      return;
+    }
+    for (let component of this._pendingEffects) {
+      component.hooks!.runEffects();
+    }
+    this._pendingEffects.clear();
   }
 
   _scheduleUpdate(component: Component) {
@@ -467,16 +492,28 @@ class Root {
     }
   }
 
-  _unmount(component: Component) {
-    for (let pending of this._pendingUpdate) {
-      if (isAncestorOf(component, pending)) {
-        this._pendingUpdate.delete(pending);
+  _unmount(component: Component, isUnmountingAncestor = false) {
+    if (isValidElement(component.vnode)) {
+      // Run cleanup that only applies to DOM and custom components.
+      for (let child of component.output) {
+        this._unmount(child, true);
+      }
+
+      if (component.vnode.ref) {
+        component.vnode.ref.current = null;
+      }
+
+      // Run cleanup that only applies to custom components.
+      if (typeof component.vnode.type === "function") {
+        this._pendingUpdate.delete(component);
+        this._pendingEffects.delete(component);
+        component.hooks!.cleanup();
       }
     }
-    if (isValidElement(component.vnode) && component.vnode.ref) {
-      component.vnode.ref.current = null;
+
+    if (!isUnmountingAncestor) {
+      topLevelDomNodes(component).forEach((node) => node.remove());
     }
-    topLevelDomNodes(component).forEach((node) => node.remove());
   }
 }
 
