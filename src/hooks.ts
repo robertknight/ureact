@@ -25,8 +25,11 @@ export class HookState {
     ++this._index;
     let hook = this._hooks[this._index];
     if (!hook) {
-      const setter = (newState: S) => {
-        hook.value = newState;
+      const setter = (newState: S | ((current: S) => S)) => {
+        hook.value =
+          typeof newState === "function"
+            ? (newState as any)(hook.value)
+            : newState;
         this._scheduleUpdate();
       };
       const value =
