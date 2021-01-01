@@ -531,6 +531,28 @@ describe("rendering", () => {
       assert.equal(container.innerHTML, "<button>Updated</button>");
     });
 
+    it("updates a custom component that returns text", () => {
+      const TextComponent = ({ children }) => children;
+      const container = testRender(h(TextComponent, {}, "One"));
+      assert.equal(container.innerHTML, "One");
+
+      render(h(TextComponent, {}, "Two"), container);
+      assert.equal(container.innerHTML, "Two");
+
+      render(h(TextComponent, {}, "Three"), container);
+      assert.equal(container.innerHTML, "Three");
+    });
+
+    it("updates a custom component that returns null", () => {
+      const EmptyComponent = () => null;
+      const container = testRender(h(EmptyComponent));
+
+      render(h(EmptyComponent), container);
+      render(h(EmptyComponent), container);
+
+      assert.equal(container.innerHTML, "");
+    });
+
     it("updates a custom component with children", () => {
       function Button({ children }) {
         return h("button", {}, children);
