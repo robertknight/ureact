@@ -179,6 +179,13 @@ function getParentDom(c: Component) {
   return parent ? parent.dom : null;
 }
 
+function isAncestorOf(ancestor: Component, c: Component | null) {
+  while (c && c !== ancestor) {
+    c = c.parent;
+  }
+  return c === ancestor;
+}
+
 /**
  * Render tree root.
  *
@@ -461,6 +468,11 @@ class Root {
   }
 
   _unmount(component: Component) {
+    for (let pending of this._pendingUpdate) {
+      if (isAncestorOf(component, pending)) {
+        this._pendingUpdate.delete(pending);
+      }
+    }
     if (isValidElement(component.vnode) && component.vnode.ref) {
       component.vnode.ref.current = null;
     }

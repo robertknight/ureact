@@ -122,6 +122,49 @@ describe("hooks", () => {
       await delay(0);
       assert.equal(container.innerHTML, "<button>2</button>");
     });
+
+    it("cancels pending re-renders if component is unmounted", async () => {
+      let renderCount = 0;
+
+      const Counter = () => {
+        ++renderCount;
+
+        const [count, setCount] = useState(0);
+        const increment = () => setCount((count) => count + 1);
+        return h("button", { onClick: increment }, count);
+      };
+
+      const container = testRender(h(Counter));
+      container.querySelector("button").click();
+
+      render(h(null), container);
+      await delay(0);
+
+      assert.equal(container.innerHTML, "");
+      assert.equal(renderCount, 1);
+    });
+
+    it("cancels pending re-renders if parent is unmounted", async () => {
+      let renderCount = 0;
+
+      const Counter = () => {
+        ++renderCount;
+
+        const [count, setCount] = useState(0);
+        const increment = () => setCount((count) => count + 1);
+        return h("button", { onClick: increment }, count);
+      };
+      const Parent = () => h(Counter);
+
+      const container = testRender(h(Parent));
+      container.querySelector("button").click();
+
+      render(h(null), container);
+      await delay(0);
+
+      assert.equal(container.innerHTML, "");
+      assert.equal(renderCount, 1);
+    });
   });
 
   describe("useRef", () => {
