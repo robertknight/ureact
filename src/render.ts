@@ -387,6 +387,9 @@ class Root {
     } else if (typeof vnode.type === "string") {
       const element = this._document.createElement(vnode.type);
       diffElementProps(element, {}, vnode.props);
+      if (vnode.ref) {
+        vnode.ref.current = element;
+      }
       newComponent.dom = element;
 
       if (vnode.props.children != null) {
@@ -458,6 +461,9 @@ class Root {
   }
 
   _unmount(component: Component) {
+    if (isValidElement(component.vnode) && component.vnode.ref) {
+      component.vnode.ref.current = null;
+    }
     topLevelDomNodes(component).forEach((node) => node.remove());
   }
 }

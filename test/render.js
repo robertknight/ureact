@@ -91,6 +91,21 @@ describe("rendering", () => {
       sinon.assert.calledOnce(onClick);
       sinon.assert.calledWith(onClick, event);
     });
+
+    it("sets `ref` prop to DOM node", () => {
+      const ref = {};
+      const container = testRender(h("div", { ref }));
+      assert.equal(container.innerHTML, "<div></div>");
+      assert.equal(ref.current, container.firstChild);
+    });
+
+    it("unsets `ref` when DOM component is unmounted", () => {
+      const ref = {};
+      const container = testRender(h("div", { ref }));
+      assert.equal(ref.current, container.firstChild);
+      render(h(null), container);
+      assert.equal(ref.current, null);
+    });
   });
 
   describe("custom DOM element rendering", () => {

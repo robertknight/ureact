@@ -14,11 +14,16 @@ export interface Props {
   [prop: string]: any;
 }
 
+export interface Ref<T> {
+  current: T;
+}
+
 // Element produced by a component describing what to render.
 export interface VNode {
   type: NodeType;
   props: Props;
   key: VNodeKey | null;
+  ref: Ref<any> | null;
 }
 
 export const elementSymbol = Symbol.for("ureactElement");
