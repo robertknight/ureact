@@ -173,29 +173,36 @@ function topLevelDomNodes(c: Component): (Element | Text)[] {
  * for the first time.
  */
 class Root {
-  element: Element;
+  container: Element;
 
   private _rootComponent: Component | null;
   private _document: Document;
 
   /**
-   * Create a root using `domEl` as a container DOM element.
+   * Create a root which renders into `container`.
    */
-  constructor(domEl: Element) {
-    (domEl as UReactRootElement)._ureactRoot = this;
+  constructor(container: Element) {
+    (container as UReactRootElement)._ureactRoot = this;
 
-    this.element = domEl;
+    this.container = container;
     this._rootComponent = null;
-    this._document = domEl.ownerDocument;
+    this._document = container.ownerDocument;
   }
 
   /**
-   * Render a VNode into the root.
+   * Render a VNode into the container element.
    */
   render(vnode: VNodeChild) {
-    this._rootComponent = this._diff(this._rootComponent, vnode, this.element);
+    this._rootComponent = this._diff(
+      this._rootComponent,
+      vnode,
+      this.container
+    );
   }
 
+  /**
+   * Render a single VNode
+   */
   _diff(
     component: Component | null,
     vnode: VNodeChild,
@@ -223,15 +230,15 @@ class Root {
           // Update DOM component.
           const el = component.dom as Element;
           diffElementProps(el, prevVnode.props, vnode.props);
-          component.output = this._diffChildren(component, vnode, el);
+          component.output = this._diffList(
+            component.output,
+            vnode.props.children ?? null,
+            el
+          );
         } else if (typeof vnode.type === "function") {
           // Update custom component.
-          const newOutput = vnode.type.call(null, vnode.props);
-          component.output[0] = this._diff(
-            component.output[0],
-            newOutput,
-            parent
-          );
+          const result = vnode.type.call(null, vnode.props);
+          component.output = this._diffList(component.output, result, parent);
         }
         didUpdate = true;
       }
@@ -253,12 +260,21 @@ class Root {
     return newComponent;
   }
 
-  _diffChildren(component: Component, vnode: VNode, el: Element) {
-    const prevOutput = component.output;
+  /**
+   * Render a list of VNodes.
+   *
+   * This list can be the children of a DOM VNode or the output of a custom
+   * component VNode.
+   */
+  _diffList(
+    prevOutput: Component[],
+    vnodes: VNodeChildren,
+    el: Element
+  ): Component[] {
     const newOutput = [];
     const unmatchedOutput = new Set(prevOutput);
 
-    if (vnode.props.children) {
+    if (vnodes) {
       // Number of non-keyed children from the new vnode rendered so far.
       let nonKeyedCount = -1;
 
@@ -266,7 +282,7 @@ class Root {
       // vnode, excluding children don't render any output.
       let lastDomOutput;
 
-      for (let child of flattenChildren(vnode.props.children)) {
+      for (let child of flattenChildren(vnodes)) {
         // Find the child from the previous render that corresponds to this
         // child.
         let prevComponent;
@@ -323,7 +339,10 @@ class Root {
           }
         }
 
-        if (!updatedPrevComponent) {
+        if (updatedPrevComponent) {
+          prevComponent!.vnode = child;
+          newOutput.push(prevComponent!);
+        } else {
           if (prevComponent) {
             // Previous and next children are different types of component.
             this._unmount(prevComponent);
@@ -385,9 +404,10 @@ class Root {
         }
       }
     } else if (typeof vnode.type === "function") {
-      const renderResult = vnode.type.call(null, vnode.props);
-      const renderOutput = this._renderTree(renderResult);
-      newComponent.output.push(renderOutput);
+      const result = vnode.type.call(null, vnode.props);
+      newComponent.output = Array.isArray(result)
+        ? result.map((r) => this._renderTree(r))
+        : [this._renderTree(result)];
     }
 
     return newComponent;

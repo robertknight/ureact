@@ -489,6 +489,12 @@ describe("rendering", () => {
       assert.equal(container.innerHTML, "Hello world");
     });
 
+    it("renders a custom component that returns an array", () => {
+      const ArrayComponent = () => ["Hello ", "world"];
+      const container = testRender(h(ArrayComponent));
+      assert.equal(container.innerHTML, "Hello world");
+    });
+
     it("renders a custom component with children", () => {
       function Button({ children }) {
         return h("button", {}, children);
@@ -560,6 +566,16 @@ describe("rendering", () => {
       const container = testRender(h(Button, {}, "Click me"));
       render(h(Button, {}, "Updated"), container);
       assert.equal(container.innerHTML, "<button>Updated</button>");
+    });
+
+    it("updates a custom component that returns an array", () => {
+      const List = ({ items }) => items.map((item) => h("li", {}, item));
+      const container = testRender(h(List, { items: ["One", "two"] }));
+      render(h(List, { items: ["Three", "four", "five"] }), container);
+      assert.equal(
+        container.innerHTML,
+        "<li>Three</li><li>four</li><li>five</li>"
+      );
     });
   });
 });
