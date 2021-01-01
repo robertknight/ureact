@@ -12,6 +12,7 @@ describe("JSX", () => {
         type: "div",
         props: { someProp: "someValue" },
         key: null,
+        ref: null,
       });
     });
 
@@ -22,6 +23,7 @@ describe("JSX", () => {
         type: "div",
         props: { children: "child" },
         key: null,
+        ref: null,
       });
     });
 
@@ -32,6 +34,7 @@ describe("JSX", () => {
         type: "div",
         props: { children: ["childA", "childB"] },
         key: null,
+        ref: null,
       });
     });
 
@@ -45,6 +48,22 @@ describe("JSX", () => {
         type: "div",
         props: { otherProp: "testValue" },
         key: "aKey",
+        ref: null,
+      });
+    });
+
+    it("sets ref", () => {
+      const ref = {};
+      const vnode = createElement("div", {
+        ref,
+        otherProp: "testValue",
+      });
+      assert.deepEqual(vnode, {
+        _tag: elementSymbol,
+        type: "div",
+        props: { otherProp: "testValue" },
+        key: null,
+        ref,
       });
     });
   });

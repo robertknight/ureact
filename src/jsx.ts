@@ -30,6 +30,12 @@ export const elementSymbol = Symbol.for("ureactElement");
  * https://reactjs.org/blog/2020/09/22/introducing-the-new-jsx-transform.html.
  */
 export function jsx(type: NodeType, props: Props, key?: VNodeKey | null) {
+  // nb. Here we assume it is safe to mutate `props`.
+  const ref = props.ref ?? null;
+  if (ref !== null) {
+    delete props.ref;
+  }
+
   return {
     // `_tag` is a non-serializable property used to indicate that the object was
     // created by the `jsx` or `createElement` functions. This prevents objects
@@ -39,6 +45,7 @@ export function jsx(type: NodeType, props: Props, key?: VNodeKey | null) {
     type,
     props,
     key,
+    ref,
   };
 }
 
@@ -54,9 +61,8 @@ export function createElement(
   props: Props = {},
   ...children: VNodeChildren[]
 ) {
-  let key = props.key ?? null;
-
-  // Here we assume it is safe to mutate `props`.
+  // nb. Here we assume it is safe to mutate `props`.
+  const key = props.key ?? null;
   if (key !== null) {
     delete props.key;
   }
