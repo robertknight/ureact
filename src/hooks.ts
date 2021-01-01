@@ -109,6 +109,22 @@ export class HookState {
     return hook.result;
   }
 
+  useCallback<F extends Function>(callback: F, deps: any[]) {
+    let hook = this._nextHook<MemoHook<F>>();
+    if (!hook) {
+      hook = {
+        type: "memo",
+        result: callback,
+        deps,
+      };
+      this._hooks.push(hook);
+    } else if (!shallowEqual(hook.deps, deps)) {
+      hook.result = callback;
+      hook.deps = deps;
+    }
+    return hook.result;
+  }
+
   useState<S>(initialState: S | (() => S)) {
     let hook = this._nextHook<StateHook<S>>();
     if (!hook) {
@@ -153,6 +169,10 @@ function getHookState() {
 
 export function useEffect(effect: () => void, deps?: any[]) {
   return getHookState().useEffect(effect, deps);
+}
+
+export function useCallback<F extends Function>(callback: F, deps: any[]) {
+  return getHookState().useCallback(callback, deps);
 }
 
 export function useMemo<T>(callback: () => T, deps: any[]) {

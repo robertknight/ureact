@@ -5,6 +5,7 @@ const { JSDOM } = require("jsdom");
 const {
   createElement: h,
   render,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -320,6 +321,28 @@ describe("hooks", () => {
       render(h(Widget, { value: 4 }), container);
       assert.equal(calcCount, 2);
       assert.equal(container.innerHTML, "<div>16</div>");
+    });
+  });
+
+  describe("useCallback", () => {
+    let callback;
+
+    it("recreates callback when dependencies change", () => {
+      const Widget = ({ power }) => {
+        callback = useCallback((value) => value ** power, [power]);
+        return "Hello";
+      };
+
+      const container = testRender(h(Widget, { power: 2 }));
+      const initialCallback = callback;
+      assert.equal(callback(4), 16);
+
+      render(h(Widget, { power: 2 }), container);
+      assert.equal(callback, initialCallback);
+
+      render(h(Widget, { power: 3 }), container);
+      assert.notEqual(callback, initialCallback);
+      assert.equal(callback(4), 64);
     });
   });
 });
