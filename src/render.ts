@@ -208,19 +208,18 @@ class Root {
     vnode: VNodeChild,
     parent: Element
   ): Component {
-    // Did we successfully update the existing component instance?
-    let didUpdate = false;
-
+    // Update the existing component if there is one and the types match.
     if (component) {
       const prevVnode = component.vnode;
+      let typeMatched = false;
 
       if (isTextVNode(prevVnode) && isTextVNode(vnode)) {
         if (vnode !== prevVnode) {
           (component.dom as Text).data = vnode.toString();
         }
-        didUpdate = true;
+        typeMatched = true;
       } else if (isEmptyVNode(prevVnode) && isEmptyVNode(vnode)) {
-        didUpdate = true;
+        typeMatched = true;
       } else if (
         isValidElement(prevVnode) &&
         isValidElement(vnode) &&
@@ -240,19 +239,19 @@ class Root {
           const result = vnode.type.call(null, vnode.props);
           component.output = this._diffList(component.output, result, parent);
         }
-        didUpdate = true;
+        typeMatched = true;
+      }
+
+      if (typeMatched) {
+        component.vnode = vnode;
+        return component;
+      } else {
+        this._unmount(component);
       }
     }
 
-    if (didUpdate) {
-      component!.vnode = vnode;
-      return component!;
-    }
-
-    if (component) {
-      this._unmount(component);
-    }
-
+    // If there is no existing component or it has a different type, render it
+    // from scratch.
     const newComponent = this._renderTree(vnode);
     if (newComponent !== component) {
       topLevelDomNodes(newComponent).forEach((node) => parent.append(node));
@@ -300,70 +299,28 @@ class Root {
           );
         }
 
-        // Did we find a matching component from the previous render that
-        // we could update, instead of rendering a new element?
-        let updatedPrevComponent = false;
-
-        if (prevComponent !== undefined) {
+        // Diff the child against the previous matching output, if any.
+        let childComponent;
+        if (prevComponent) {
           unmatchedOutput.delete(prevComponent);
-
-          // Update the existing child component if one was found and it is
-          // of the same type, or replace it otherwise.
-          if (isEmptyVNode(child) && isEmptyVNode(prevComponent.vnode)) {
-            // Previous and next children generate no output.
-            updatedPrevComponent = true;
-          } else if (isTextVNode(child) && isTextVNode(prevComponent.vnode)) {
-            // Previous and next children are both text.
-            (prevComponent.dom as Text).data = child!.toString();
-            lastDomOutput = prevComponent.dom;
-            updatedPrevComponent = true;
-          } else if (
-            isValidElement(child) &&
-            isValidElement(prevComponent.vnode) &&
-            prevComponent.vnode.type === child.type
-          ) {
-            // Previous and next children are the same type of DOM or custom
-            // component.
-            this._diff(prevComponent, child, el);
-
-            // If this is a keyed child, ensure it is located in the correct
-            // position.
-            if (childKey !== null) {
-              for (let node of topLevelDomNodes(prevComponent)) {
-                el.insertBefore(
-                  node,
-                  lastDomOutput ? lastDomOutput.nextSibling : el.firstChild
-                );
-                lastDomOutput = node;
-              }
-            }
-
-            if (prevComponent.dom) {
-              lastDomOutput = prevComponent.dom;
-            }
-            updatedPrevComponent = true;
-          }
+          childComponent = this._diff(prevComponent, child, el);
+        } else {
+          childComponent = this._renderTree(child);
         }
 
-        if (updatedPrevComponent) {
-          prevComponent!.vnode = child;
-          newOutput.push(prevComponent!);
-        } else {
-          if (prevComponent) {
-            // Previous and next children are different types of component.
-            this._unmount(prevComponent);
-          }
+        // Ensure the output is in the correct position in the DOM.
+        newOutput.push(childComponent);
+        for (let node of topLevelDomNodes(childComponent)) {
+          el.insertBefore(
+            node,
+            lastDomOutput ? lastDomOutput.nextSibling : el.firstChild
+          );
+          lastDomOutput = node;
+        }
 
-          const childComponent = this._renderTree(child);
-          newOutput.push(childComponent);
-
-          for (let node of topLevelDomNodes(childComponent)) {
-            el.insertBefore(
-              node,
-              lastDomOutput ? lastDomOutput.nextSibling : el.firstChild
-            );
-            lastDomOutput = node;
-          }
+        const lastOutput = newOutput[newOutput.length - 1];
+        if (lastOutput.dom) {
+          lastDomOutput = lastOutput.dom;
         }
       }
     }
