@@ -156,6 +156,16 @@ function vnodeKey(vnode: any) {
 }
 
 /**
+ * Return the top-level DOM nodes rendered by a component.
+ */
+function topLevelDomNodes(c: Component): (Element | Text)[] {
+  if (c.dom) {
+    return [c.dom];
+  }
+  return c.output.flatMap(topLevelDomNodes);
+}
+
+/**
  * Render tree root.
  *
  * There is one `Root` per DOM subtree rendered by UReact. It is created
@@ -217,8 +227,11 @@ class Root {
         } else if (typeof vnode.type === "function") {
           // Update custom component.
           const newOutput = vnode.type.call(null, vnode.props);
-          const result = this._diff(component.output[0], newOutput, parent);
-          component.output[0] = result;
+          component.output[0] = this._diff(
+            component.output[0],
+            newOutput,
+            parent
+          );
         }
         didUpdate = true;
       }
@@ -232,9 +245,10 @@ class Root {
     if (component) {
       this._unmount(component);
     }
+
     const newComponent = this._renderTree(vnode);
-    if (newComponent !== component && newComponent.dom) {
-      parent.append(newComponent.dom);
+    if (newComponent !== component) {
+      topLevelDomNodes(newComponent).forEach((node) => parent.append(node));
     }
     return newComponent;
   }
@@ -318,13 +332,13 @@ class Root {
           const childComponent = this._renderTree(child);
           newOutput.push(childComponent);
 
-          if (childComponent.dom) {
+          for (let node of topLevelDomNodes(childComponent)) {
             el.insertBefore(
-              childComponent.dom,
+              node,
               lastDomOutput ? lastDomOutput.nextSibling : el.firstChild
             );
+            lastDomOutput = node;
           }
-          lastDomOutput = childComponent.dom;
         }
       }
     }
@@ -365,16 +379,15 @@ class Root {
         for (let child of flattenChildren(vnode.props.children)) {
           const childComponent = this._renderTree(child);
           newComponent.output.push(childComponent);
-          if (childComponent.dom) {
-            element.append(childComponent.dom);
-          }
+          topLevelDomNodes(childComponent).forEach((node) =>
+            element.append(node)
+          );
         }
       }
     } else if (typeof vnode.type === "function") {
       const renderResult = vnode.type.call(null, vnode.props);
       const renderOutput = this._renderTree(renderResult);
       newComponent.output.push(renderOutput);
-      newComponent.dom = renderOutput.dom;
     }
 
     return newComponent;
@@ -389,7 +402,7 @@ class Root {
   }
 
   _unmount(component: Component) {
-    component.dom?.remove();
+    topLevelDomNodes(component).forEach((node) => node.remove());
   }
 }
 
