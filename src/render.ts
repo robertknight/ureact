@@ -349,11 +349,11 @@ class Root {
     if (isEmptyVNode(vnode)) {
       newComponent.dom = null;
     } else if (isTextVNode(vnode)) {
-      newComponent.dom = this._createText(vnode.toString());
+      newComponent.dom = this._document.createTextNode(vnode.toString());
     } else if (!isValidElement(vnode)) {
       throw new Error("Object is not a valid element");
     } else if (typeof vnode.type === "string") {
-      const element = this._createElement(vnode.type);
+      const element = this._document.createElement(vnode.type);
       diffElementProps(element, {}, vnode.props);
       newComponent.dom = element;
 
@@ -374,14 +374,6 @@ class Root {
     }
 
     return newComponent;
-  }
-
-  _createElement(type: string) {
-    return this._document.createElement(type);
-  }
-
-  _createText(text: string) {
-    return this._document.createTextNode(text);
   }
 
   _unmount(component: Component) {
