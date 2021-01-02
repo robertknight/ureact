@@ -29,7 +29,7 @@ interface EffectHook {
 type Hook = EffectHook | MemoHook<any> | RefHook<any> | StateHook<any>;
 
 function shallowEqual(a: any[], b: any[]) {
-  return (a.length === b.length) === a.every((v, i) => b[i] === v);
+  return a.length === b.length && a.every((v, i) => b[i] === v);
 }
 
 export class HookState {
