@@ -143,6 +143,25 @@ export class HookState {
     return [hook.value, hook.setter];
   }
 
+  useReducer<S>(
+    reducer: (state: S, action: any) => S,
+    initialArg: S,
+    init?: (a: typeof initialArg) => S
+  ) {
+    let hook = this._nextHook<StateHook<S>>();
+    if (!hook) {
+      const dispatch = (action: any) => {
+        hook!.value = reducer(hook!.value, action);
+        this._scheduleUpdate();
+      };
+      const value =
+        typeof init === "function" ? init(initialArg) : (initialArg as S);
+      hook = { type: "state", value, setter: dispatch };
+      this._hooks.push(hook);
+    }
+    return [hook.value, hook.setter];
+  }
+
   useRef<T>(initialValue: T) {
     let hook = this._nextHook<RefHook<T>>();
     if (!hook) {
@@ -177,6 +196,14 @@ export function useCallback<F extends Function>(callback: F, deps: any[]) {
 
 export function useMemo<T>(callback: () => T, deps: any[]) {
   return getHookState().useMemo(callback, deps);
+}
+
+export function useReducer<S, A>(
+  reducer: (state: S, action: A) => S,
+  initialArg: S,
+  init?: (arg: S) => S
+) {
+  return getHookState().useReducer(reducer, initialArg, init);
 }
 
 export function useRef<T>(initialValue: T) {

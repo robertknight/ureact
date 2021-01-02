@@ -8,6 +8,7 @@ const {
   useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } = require("../build/index");
@@ -167,6 +168,85 @@ describe("hooks", () => {
 
       assert.equal(container.innerHTML, "");
       assert.equal(renderCount, 1);
+    });
+  });
+
+  describe("useReducer", () => {
+    it("sets initial state from 2nd arg", () => {
+      const Widget = () => {
+        const initialState = "Test";
+        const [state, dispatch] = useReducer((state) => state, initialState);
+        return h("div", {}, state);
+      };
+      const container = testRender(h(Widget));
+      assert.equal(container.innerHTML, "<div>Test</div>");
+    });
+
+    it("sets initial state from 2nd and 3rd args if present", () => {
+      const Widget = () => {
+        const initialState = 4;
+        const [state, dispatch] = useReducer(
+          (state) => state,
+          initialState,
+          (arg) => arg ** 3
+        );
+        return h("div", {}, state);
+      };
+      const container = testRender(h(Widget));
+      assert.equal(container.innerHTML, "<div>64</div>");
+    });
+
+    it("updates state when action is dispatched", async () => {
+      const Counter = () => {
+        const [state, dispatch] = useReducer((state, action) => {
+          if (action === "increment") {
+            return state + 1;
+          } else if (action === "decrement") {
+            return state - 1;
+          } else {
+            return state;
+          }
+        }, 0);
+
+        const increment = () => dispatch("increment");
+        const decrement = () => dispatch("decrement");
+
+        return h(
+          "div",
+          {},
+          h("button", { onClick: increment }, "Up"),
+          h("button", { onClick: decrement }, "Down"),
+          h("p", {}, state)
+        );
+      };
+
+      const container = testRender(h(Counter));
+      const outputEl = container.querySelector("p");
+      const upButton = container.querySelectorAll("button")[0];
+      const downButton = container.querySelectorAll("button")[1];
+
+      assert.equal(outputEl.textContent, "0");
+
+      // Perform several tests involving clicking on a button, waiting for
+      // a re-render and then checking the content.
+      upButton.click();
+      await delay(0);
+      assert.equal(outputEl.textContent, "1");
+
+      upButton.click();
+      await delay(0);
+      assert.equal(outputEl.textContent, "2");
+
+      downButton.click();
+      await delay(0);
+      assert.equal(outputEl.textContent, "1");
+
+      // Test what happens if multiple actions are triggered before a re-render
+      // happens.
+      downButton.click();
+      downButton.click();
+      await delay(0);
+      assert.equal(outputEl.textContent, "-1");
     });
   });
 
