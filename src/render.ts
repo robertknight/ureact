@@ -51,7 +51,7 @@ interface UReactRootElement extends Element {
  *  - Values which render a DOM element
  *  - Values which render a custom component
  */
-type VNodeChild = string | boolean | number | null | VNode;
+type VNodeChild = string | boolean | number | null | undefined | VNode;
 
 function flattenChildren(children: VNodeChildren): VNodeChild[] {
   if (!Array.isArray(children)) {

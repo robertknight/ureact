@@ -4,8 +4,6 @@ const { JSDOM } = require("jsdom");
 
 const { createElement: h, render } = require("../build/index");
 
-const { testRender } = require("./test-utils");
-
 /**
  * Attach a numeric tag, starting at 1, to each node in a sequence.
  *

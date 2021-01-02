@@ -6,6 +6,7 @@ export type VNodeChildren =
   | number
   | boolean
   | null
+  | undefined
   | VNodeChildren[];
 
 export interface Props {
