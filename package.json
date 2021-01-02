@@ -16,7 +16,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "format": "prettier --write **/*.{js,ts}",
+    "checkformatting": "prettier --check **/*.{js,ts}",
+    "format": "prettier --list-different --write **/*.{js,ts}",
     "test": "mocha"
   }
 }
