@@ -11,4 +11,4 @@ export {
   useRef,
   useState,
 } from "./hooks";
-export { Fragment, createRef } from "./utils";
+export { Fragment, createRef, memo } from "./utils";
