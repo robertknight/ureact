@@ -9,6 +9,7 @@ const {
   useCallback,
   // `useContext` is not here because it is tested separately.
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -287,119 +288,123 @@ describe("hooks", () => {
     });
   });
 
-  describe("useEffect", () => {
-    let effectCount = 0;
+  // Shared tests for effects. The only difference between `useEffect` and
+  // `useLayoutEffect` is when it runs.
+  [useEffect, useLayoutEffect].forEach((useEffect) => {
+    describe(useEffect.name, () => {
+      let effectCount = 0;
 
-    beforeEach(() => {
-      effectCount = 0;
-    });
+      beforeEach(() => {
+        effectCount = 0;
+      });
 
-    it("schedules a callback that runs after rendering", async () => {
-      const Widget = () => {
-        useEffect(() => {
-          ++effectCount;
-        });
-        return "Hello world";
-      };
+      it("schedules a callback that runs after rendering", async () => {
+        const Widget = () => {
+          useEffect(() => {
+            ++effectCount;
+          });
+          return "Hello world";
+        };
 
-      const container = testRender(h(Widget));
-      assert.equal(effectCount, 0);
-      await delay(0);
-      assert.equal(effectCount, 1);
+        const container = testRender(h(Widget));
+        assert.equal(effectCount, 0);
+        await delay(0);
+        assert.equal(effectCount, 1);
 
-      render(h(Widget), container);
-      assert.equal(effectCount, 1);
-      await delay(0);
-      assert.equal(effectCount, 2);
-    });
+        render(h(Widget), container);
+        assert.equal(effectCount, 1);
+        await delay(0);
+        assert.equal(effectCount, 2);
+      });
 
-    it("never re-runs effects with no dependencies", async () => {
-      const Widget = () => {
-        useEffect(() => {
-          ++effectCount;
-        }, []);
-        return "Hello world";
-      };
+      it("never re-runs effects with no dependencies", async () => {
+        const Widget = () => {
+          useEffect(() => {
+            ++effectCount;
+          }, []);
+          return "Hello world";
+        };
 
-      const container = testRender(h(Widget));
-      assert.equal(effectCount, 0);
-      await delay(0);
-      assert.equal(effectCount, 1);
+        const container = testRender(h(Widget));
+        assert.equal(effectCount, 0);
+        await delay(0);
+        assert.equal(effectCount, 1);
 
-      render(h(Widget), container);
-      assert.equal(effectCount, 1);
-      await delay(0);
-      assert.equal(effectCount, 1);
-    });
+        render(h(Widget), container);
+        assert.equal(effectCount, 1);
+        await delay(0);
+        assert.equal(effectCount, 1);
+      });
 
-    it("only re-runs effects when dependencies change", async () => {
-      const Widget = ({ tag }) => {
-        useEffect(() => {
-          ++effectCount;
-        }, [tag]);
-        return "Hello world";
-      };
+      it("only re-runs effects when dependencies change", async () => {
+        const Widget = ({ tag }) => {
+          useEffect(() => {
+            ++effectCount;
+          }, [tag]);
+          return "Hello world";
+        };
 
-      const container = testRender(h(Widget, { tag: 1 }));
-      assert.equal(effectCount, 0);
-      await delay(0);
-      assert.equal(effectCount, 1);
+        const container = testRender(h(Widget, { tag: 1 }));
+        assert.equal(effectCount, 0);
+        await delay(0);
+        assert.equal(effectCount, 1);
 
-      // Re-render without changing effect dependencies.
-      render(h(Widget, { tag: 1 }), container);
-      assert.equal(effectCount, 1);
-      await delay(0);
-      assert.equal(effectCount, 1);
+        // Re-render without changing effect dependencies.
+        render(h(Widget, { tag: 1 }), container);
+        assert.equal(effectCount, 1);
+        await delay(0);
+        assert.equal(effectCount, 1);
 
-      // Re-render with a change to effect dependencies.
-      render(h(Widget, { tag: 2 }), container);
-      assert.equal(effectCount, 1);
-      await delay(0);
-      assert.equal(effectCount, 2);
-    });
+        // Re-render with a change to effect dependencies.
+        render(h(Widget, { tag: 2 }), container);
+        assert.equal(effectCount, 1);
+        await delay(0);
+        assert.equal(effectCount, 2);
+      });
 
-    it("runs cleanup when component is unmounted", async () => {
-      const items = [];
-      const Widget = () => {
-        useEffect(() => {
-          ++effectCount;
-          items.push(effectCount);
-          return () => {
-            items.length = 0;
-          };
-        });
-        return "Hello world";
-      };
+      it("runs cleanup when component is unmounted", async () => {
+        const items = [];
+        const Widget = () => {
+          useEffect(() => {
+            ++effectCount;
+            items.push(effectCount);
+            return () => {
+              items.length = 0;
+            };
+          });
+          return "Hello world";
+        };
 
-      const container = testRender(h(Widget));
-      await delay(0);
-      assert.deepEqual(items, [1]);
+        const container = testRender(h(Widget));
+        await delay(0);
+        assert.deepEqual(items, [1]);
 
-      render(h(null), container);
-      assert.deepEqual(items, []);
-    });
+        render(h(null), container);
+        assert.deepEqual(items, []);
+      });
 
-    it("runs cleanup when effect is run a second time", async () => {
-      let items = [];
-      const Widget = () => {
-        useEffect(() => {
-          ++effectCount;
-          items.push(effectCount);
-          return () => {
-            items = items.filter((it) => it !== effectCount);
-          };
-        });
-        return "Hello world";
-      };
+      it("runs cleanup when effect is run a second time", async () => {
+        let items = [];
+        const Widget = () => {
+          useEffect(() => {
+            ++effectCount;
+            items.push(effectCount);
+            return () => {
+              items = items.filter((it) => it !== effectCount);
+            };
+          });
+          return "Hello world";
+        };
 
-      const container = testRender(h(Widget));
-      await delay(0);
+        const container = testRender(h(Widget));
+        await delay(0);
 
-      render(h(Widget), container);
-      await delay(0);
+        render(h(Widget), container);
+        await delay(0);
 
-      assert.equal(effectCount, 2);
-      assert.deepEqual(items, [2]);
+        assert.equal(effectCount, 2);
+        assert.deepEqual(items, [2]);
+      });
     });
   });
 

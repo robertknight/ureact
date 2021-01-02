@@ -2,9 +2,10 @@ export { createElement, isValidElement, jsx } from "./jsx";
 export { render } from "./render";
 export { createContext } from "./context";
 export {
-  useEffect,
   useCallback,
   useContext,
+  useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,

@@ -19,8 +19,17 @@ interface MemoHook<T> {
 
 type EffectCleanup = (() => void) | void;
 
+/** Specifies when an effect should run. */
+export const enum EffectTiming {
+  /** Run effect after DOM is updated but before the screen is updated. */
+  beforeRender = 0,
+  /** Run effect after DOM is updated and screen has been updated to reflect this. */
+  afterRender = 1,
+}
+
 interface EffectHook {
   type: "effect";
+  when: EffectTiming;
   deps: any[] | null;
   cleanup: (() => void) | null;
   pendingEffect: (() => EffectCleanup) | null;
@@ -47,7 +56,7 @@ export interface Component {
   scheduleUpdate(): void;
 
   /** Schedule execution of pending effects for this component. */
-  scheduleEffects(): void;
+  scheduleEffects(when: EffectTiming): void;
 
   /** Get the nearest provider of context of a given type for this component. */
   getContext<T>(type: any): ContextProvider<T>;
@@ -80,9 +89,9 @@ export class HookState {
     this._index = -1;
   }
 
-  runEffects() {
+  runEffects(when: EffectTiming) {
     for (let hook of this._hooks) {
-      if (hook.type === "effect" && hook.pendingEffect) {
+      if (hook.type === "effect" && hook.when === when && hook.pendingEffect) {
         hook.cleanup = hook.pendingEffect() || null;
         hook.pendingEffect = null;
       }
@@ -109,25 +118,34 @@ export class HookState {
     this._component.registerContext(provider);
   }
 
-  useEffect(effect: () => void, deps?: any[]) {
+  useEffect(
+    effect: () => void,
+    deps?: any[],
+    when: EffectTiming = EffectTiming.afterRender
+  ) {
     let hook = this._nextHook<EffectHook>();
     if (!hook) {
       hook = {
         type: "effect",
+        when,
         pendingEffect: effect,
         deps: deps ?? null,
         cleanup: null,
       };
       this._hooks.push(hook);
-      this._component.scheduleEffects();
+      this._component.scheduleEffects(when);
     } else if (!deps || !hook.deps || !shallowEqual(hook.deps, deps)) {
       if (hook.cleanup) {
         hook.cleanup();
         hook.cleanup = null;
       }
       hook.pendingEffect = effect;
-      this._component.scheduleEffects();
+      this._component.scheduleEffects(when);
     }
+  }
+
+  useLayoutEffect(effect: () => void, deps?: any[]) {
+    return this.useEffect(effect, deps, EffectTiming.beforeRender);
   }
 
   useMemo<T>(callback: () => T, deps: any[]) {
@@ -250,6 +268,10 @@ export function useCallback<F extends Function>(callback: F, deps: any[]) {
 
 export function useEffect(effect: () => void, deps?: any[]) {
   return getHookState().useEffect(effect, deps);
+}
+
+export function useLayoutEffect(effect: () => void, deps?: any[]) {
+  return getHookState().useLayoutEffect(effect, deps);
 }
 
 export function useContext(type: object): any {

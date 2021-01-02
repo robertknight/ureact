@@ -1,6 +1,6 @@
 import { Props, VNode, VNodeChildren, isValidElement } from "./jsx";
 import { ContextProvider } from "./context";
-import { HookState, setHookState } from "./hooks";
+import { EffectTiming, HookState, setHookState } from "./hooks";
 import { diffElementProps } from "./dom-props";
 
 /**
@@ -119,6 +119,7 @@ class Root {
   private _rootComponent: Component | null;
   private _document: Document;
   private _pendingEffects: Set<Component>;
+  private _pendingLayoutEffects: Set<Component>;
   private _pendingUpdate: Set<Component>;
 
   /**
@@ -132,6 +133,7 @@ class Root {
     this._rootComponent = null;
     this._document = container.ownerDocument;
     this._pendingEffects = new Set();
+    this._pendingLayoutEffects = new Set();
     this._pendingUpdate = new Set();
   }
 
@@ -359,7 +361,7 @@ class Root {
       // lazily and also creating a class for the connector.
       component.hooks = new HookState({
         scheduleUpdate: () => this._scheduleUpdate(component),
-        scheduleEffects: () => this._scheduleEffects(component),
+        scheduleEffects: (when) => this._scheduleEffects(component, when),
         getContext: (type) => this._getContext(component, type),
         registerContext: (provider) => (component.contextProvider = provider),
       });
@@ -373,24 +375,38 @@ class Root {
     return result;
   }
 
-  _scheduleEffects(component: Component) {
-    const isScheduled = this._pendingEffects.size > 0;
-    if (!this._pendingEffects.has(component)) {
-      this._pendingEffects.add(component);
-    }
-    if (!isScheduled) {
-      // TODO - Use `requestAnimationFrame` or another method that will run
-      // after rendering.
-      queueMicrotask(() => this._flushEffects());
+  _scheduleEffects(component: Component, when: EffectTiming) {
+    if (when === EffectTiming.afterRender) {
+      const isScheduled = this._pendingEffects.size > 0;
+      if (!this._pendingEffects.has(component)) {
+        this._pendingEffects.add(component);
+      }
+      if (!isScheduled) {
+        // TODO - Use `requestAnimationFrame` or another method that will run
+        // after rendering.
+        queueMicrotask(() => this._flushEffects());
+      }
+    } else {
+      const isScheduled = this._pendingEffects.size > 0;
+      if (!this._pendingLayoutEffects.has(component)) {
+        this._pendingLayoutEffects.add(component);
+      }
+      if (!isScheduled) {
+        queueMicrotask(() => this._flushLayoutEffects());
+      }
     }
   }
 
-  _flushEffects() {
-    if (this._pendingEffects.size === 0) {
-      return;
+  _flushLayoutEffects() {
+    for (let component of this._pendingLayoutEffects) {
+      component.hooks!.runEffects(EffectTiming.beforeRender);
     }
+    this._pendingLayoutEffects.clear();
+  }
+
+  _flushEffects() {
     for (let component of this._pendingEffects) {
-      component.hooks!.runEffects();
+      component.hooks!.runEffects(EffectTiming.afterRender);
     }
     this._pendingEffects.clear();
   }
@@ -444,6 +460,7 @@ class Root {
       if (typeof component.vnode.type === "function") {
         this._pendingUpdate.delete(component);
         this._pendingEffects.delete(component);
+        this._pendingLayoutEffects.delete(component);
         component.hooks!.cleanup();
       }
     }
