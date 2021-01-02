@@ -151,8 +151,11 @@ export class HookState {
     let hook = this._nextHook<StateHook<S>>();
     if (!hook) {
       const dispatch = (action: any) => {
-        hook!.value = reducer(hook!.value, action);
-        this._scheduleUpdate();
+        const newState = reducer(hook!.value, action);
+        if (!Object.is(hook!.value, newState)) {
+          hook!.value = newState;
+          this._scheduleUpdate();
+        }
       };
       const value =
         typeof init === "function" ? init(initialArg) : (initialArg as S);

@@ -172,6 +172,39 @@ describe("hooks", () => {
   });
 
   describe("useReducer", () => {
+    let renderCount = 0;
+
+    const Counter = () => {
+      ++renderCount;
+
+      const [state, dispatch] = useReducer((state, action) => {
+        if (action === "increment") {
+          return state + 1;
+        } else if (action === "decrement") {
+          return state - 1;
+        } else {
+          return state;
+        }
+      }, 0);
+
+      const increment = () => dispatch("increment");
+      const decrement = () => dispatch("decrement");
+      const doNothing = () => dispatch("ignore-me");
+
+      return h(
+        "div",
+        {},
+        h("button", { testid: "up", onClick: increment }, "Up"),
+        h("button", { testid: "down", onClick: decrement }, "Down"),
+        h("button", { testid: "noop", onClick: doNothing }, "Ignore me"),
+        h("p", {}, state)
+      );
+    };
+
+    beforeEach(() => {
+      renderCount = 0;
+    });
+
     it("sets initial state from 2nd arg", () => {
       const Widget = () => {
         const initialState = "Test";
@@ -197,33 +230,10 @@ describe("hooks", () => {
     });
 
     it("updates state when action is dispatched", async () => {
-      const Counter = () => {
-        const [state, dispatch] = useReducer((state, action) => {
-          if (action === "increment") {
-            return state + 1;
-          } else if (action === "decrement") {
-            return state - 1;
-          } else {
-            return state;
-          }
-        }, 0);
-
-        const increment = () => dispatch("increment");
-        const decrement = () => dispatch("decrement");
-
-        return h(
-          "div",
-          {},
-          h("button", { onClick: increment }, "Up"),
-          h("button", { onClick: decrement }, "Down"),
-          h("p", {}, state)
-        );
-      };
-
       const container = testRender(h(Counter));
       const outputEl = container.querySelector("p");
-      const upButton = container.querySelectorAll("button")[0];
-      const downButton = container.querySelectorAll("button")[1];
+      const upButton = container.querySelector("button[testid=up]");
+      const downButton = container.querySelector("button[testid=down]");
 
       assert.equal(outputEl.textContent, "0");
 
@@ -247,6 +257,17 @@ describe("hooks", () => {
       downButton.click();
       await delay(0);
       assert.equal(outputEl.textContent, "-1");
+    });
+
+    it("does not re-render if state did not change", async () => {
+      const container = testRender(h(Counter));
+      const noopButton = container.querySelector("button[testid=noop]");
+
+      assert.equal(renderCount, 1);
+      noopButton.click();
+      await delay(0);
+
+      assert.equal(renderCount, 1);
     });
   });
 
