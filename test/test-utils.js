@@ -82,5 +82,23 @@ describe("test-utils", () => {
 
       assert.equal(effectCount, 1);
     });
+
+    it("supports async callbacks", async () => {
+      const Widget = () => {
+        const [count, setCount] = useState(0);
+        return h("button", { onClick: () => setCount((c) => c + 1) }, count);
+      };
+
+      const container = testRender(h(Widget));
+      const button = container.querySelector("button");
+
+      await act(async () => {
+        button.click();
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        button.click();
+      });
+
+      assert.equal(container.innerHTML, "<button>2</button>");
+    });
   });
 });
