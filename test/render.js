@@ -22,7 +22,8 @@ function getTags(nodes) {
 }
 
 // VNode values that render no output.
-const nullishValues = [null, false, true];
+// See https://reactjs.org/docs/jsx-in-depth.html#booleans-null-and-undefined-are-ignored.
+const nullishValues = [null, undefined, false, true];
 
 describe("rendering", () => {
   let jsdom;

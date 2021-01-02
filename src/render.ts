@@ -67,7 +67,7 @@ function flattenChildren(children: VNodeChildren): VNodeChild[] {
  * Return true if `vnode` does not render any output.
  */
 function isEmptyVNode(vnode: VNodeChild): vnode is null | boolean {
-  return vnode === null || typeof vnode === "boolean";
+  return vnode == null || typeof vnode === "boolean";
 }
 
 /**
