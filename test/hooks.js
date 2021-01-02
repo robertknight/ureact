@@ -5,7 +5,9 @@ const { JSDOM } = require("jsdom");
 const {
   createElement: h,
   render,
+
   useCallback,
+  // `useContext` is not here because it is tested separately.
   useEffect,
   useMemo,
   useReducer,

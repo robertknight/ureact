@@ -1,4 +1,5 @@
 import { Props, VNode, VNodeChildren, isValidElement } from "./jsx";
+import { ContextProvider } from "./context";
 import { HookState, setHookState } from "./hooks";
 import { diffElementProps } from "./dom-props";
 
@@ -29,6 +30,8 @@ interface Component {
   dom: Element | Text | null;
 
   hooks: HookState | null;
+
+  contextProvider: ContextProvider<any> | null;
 }
 
 // Properties added by existing DOM elements into which a UReact component tree
@@ -302,6 +305,7 @@ class Root {
       output: [],
       dom: null,
       hooks: null,
+      contextProvider: null,
     };
 
     if (isEmptyVNode(vnode)) {
@@ -337,12 +341,28 @@ class Root {
     return newComponent;
   }
 
+  _getContext(component: Component, type: any) {
+    let parent = component.parent;
+    while (parent) {
+      if (parent.contextProvider?.type === type) {
+        return parent.contextProvider!;
+      }
+      parent = parent.parent;
+    }
+    throw new Error("No provider available for context type");
+  }
+
   _renderCustom(vnode: VNode, component: Component) {
     if (!component.hooks) {
-      component.hooks = new HookState(
-        () => this._scheduleUpdate(component),
-        () => this._scheduleEffects(component)
-      );
+      // We currently initialize a `HookState` for every component, whether it
+      // uses them or not. This could be optimized by initializing `HookState`
+      // lazily and also creating a class for the connector.
+      component.hooks = new HookState({
+        scheduleUpdate: () => this._scheduleUpdate(component),
+        scheduleEffects: () => this._scheduleEffects(component),
+        getContext: (type) => this._getContext(component, type),
+        registerContext: (provider) => (component.contextProvider = provider),
+      });
     }
     this._pendingUpdate.delete(component);
     setHookState(component.hooks);
