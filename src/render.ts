@@ -183,6 +183,12 @@ class Root {
     // Update the existing component if there is one and the types match.
     if (component) {
       const prevVnode = component.vnode;
+      if (prevVnode === vnode && !this._pendingUpdate.has(component)) {
+        // Bail out if vnode is same as previous render, unless there is a pending
+        // state update for this component.
+        return component;
+      }
+
       let typeMatched = false;
 
       if (isTextVNode(prevVnode) && isTextVNode(vnode)) {

@@ -658,6 +658,30 @@ describe("rendering", () => {
       assert.equal(buttonTwo.textContent, "One");
       assert.equal(buttonTwo.parentElement.parentElement, container);
     });
+
+    it("bails out of re-rendering when vnodes are unchanged", () => {
+      let parentRenderCount = 0;
+      let childRenderCount = 0;
+
+      const Child = () => {
+        ++childRenderCount;
+        return "Hello world";
+      };
+
+      const childNode = h(Child);
+
+      const App = () => {
+        ++parentRenderCount;
+        return h("div", {}, childNode);
+      };
+
+      const container = testRender(h(App));
+      render(h(App), container);
+
+      assert.equal(container.innerHTML, "<div>Hello world</div>");
+      assert.equal(parentRenderCount, 2);
+      assert.equal(childRenderCount, 1);
+    });
   });
 
   describe("unmountComponentAtNode", () => {
