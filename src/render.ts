@@ -106,6 +106,8 @@ function isAncestorOf(ancestor: Component, c: Component | null) {
   return c === ancestor;
 }
 
+const activeRoots = new Map<Element, Root>();
+
 /**
  * Render tree root.
  *
@@ -126,8 +128,6 @@ class Root {
    * Create a root which renders into `container`.
    */
   constructor(container: Element) {
-    (container as UReactRootElement)._ureactRoot = this;
-
     this.container = container;
 
     this._rootComponent = null;
@@ -135,6 +135,13 @@ class Root {
     this._pendingEffects = new Set();
     this._pendingLayoutEffects = new Set();
     this._pendingUpdate = new Set();
+
+    activeRoots.set(container, this);
+  }
+
+  unmount() {
+    this.render(null);
+    activeRoots.delete(this.container);
   }
 
   /**
@@ -147,6 +154,21 @@ class Root {
       vnode,
       this.container
     );
+  }
+
+  /**
+   * Flush all pending state updates and effects.
+   */
+  flush() {
+    while (
+      this._pendingUpdate.size > 0 ||
+      this._pendingLayoutEffects.size > 0 ||
+      this._pendingEffects.size > 0
+    ) {
+      this._flushUpdates();
+      this._flushLayoutEffects();
+      this._flushEffects();
+    }
   }
 
   /**
@@ -471,13 +493,16 @@ class Root {
   }
 }
 
+export function getRoots() {
+  return activeRoots.values();
+}
+
 /**
  * Render a VNode into a DOM element
  *
  * See https://reactjs.org/docs/react-dom.html#render.
  */
 export function render(vnode: VNodeChild, container: Element) {
-  const root =
-    (container as UReactRootElement)._ureactRoot ?? new Root(container);
+  const root = activeRoots.get(container) ?? new Root(container);
   root.render(vnode);
 }

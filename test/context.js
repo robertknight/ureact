@@ -10,7 +10,7 @@ const {
   useMemo,
 } = require("../build/index");
 
-const { delay } = require("./test-utils");
+const { delay } = require("./utils/delay");
 
 describe("context", () => {
   let jsdom;
