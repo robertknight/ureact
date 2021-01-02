@@ -1,16 +1,17 @@
-const { assert } = require("chai");
-const sinon = require("sinon");
-const { JSDOM } = require("jsdom");
+import chai from "chai";
+import * as sinon from "sinon";
+import { JSDOM } from "jsdom";
+const { assert } = chai;
 
-const {
-  createElement: h,
+import {
+  createElement as h,
   render,
   useEffect,
   useLayoutEffect,
   useState,
-} = require("../build/index");
+} from "../build/index.js";
 
-const { act } = require("../build/test-utils");
+import { act } from "../build/test-utils.js";
 
 describe("test-utils", () => {
   let jsdom;

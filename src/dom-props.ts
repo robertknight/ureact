@@ -1,4 +1,4 @@
-import { Props } from "./jsx";
+import { Props } from "./jsx.js";
 
 // Properties added to DOM elements rendered by UReact.
 interface UReactElement extends Element {

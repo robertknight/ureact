@@ -1,4 +1,4 @@
-import { registerContext, useRef } from "./hooks";
+import { registerContext, useRef } from "./hooks.js";
 
 export class ContextProvider<T> {
   private _listeners: Array<() => void>;

@@ -1,7 +1,7 @@
-import { Props, VNode, VNodeChildren, isValidElement } from "./jsx";
-import { ContextProvider } from "./context";
-import { EffectTiming, HookState, setHookState } from "./hooks";
-import { diffElementProps } from "./dom-props";
+import { Props, VNode, VNodeChildren, isValidElement } from "./jsx.js";
+import { ContextProvider } from "./context.js";
+import { EffectTiming, HookState, setHookState } from "./hooks.js";
+import { diffElementProps } from "./dom-props.js";
 
 /**
  * Backing tree for a rendered vnode.

@@ -1,6 +1,6 @@
-export { createElement, isValidElement, jsx } from "./jsx";
-export { render, unmountComponentAtNode } from "./render";
-export { createContext } from "./context";
+export { createElement, isValidElement, jsx } from "./jsx.js";
+export { render, unmountComponentAtNode } from "./render.js";
+export { createContext } from "./context.js";
 export {
   useCallback,
   useContext,
@@ -10,5 +10,5 @@ export {
   useReducer,
   useRef,
   useState,
-} from "./hooks";
-export { Fragment, createRef, memo } from "./utils";
+} from "./hooks.js";
+export { Fragment, createRef, memo } from "./utils.js";

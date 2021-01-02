@@ -1,16 +1,17 @@
-const { assert } = require("chai");
-const sinon = require("sinon");
-const { JSDOM } = require("jsdom");
+import chai from "chai";
+import sinon from "sinon";
+import { JSDOM } from "jsdom";
+const { assert } = chai;
 
-const {
-  createElement: h,
+import {
+  createElement as h,
   render,
   createContext,
   useContext,
   useMemo,
-} = require("../build/index");
+} from "../build/index.js";
 
-const { delay } = require("./utils/delay");
+import { delay } from "./utils/delay.js";
 
 describe("context", () => {
   let jsdom;

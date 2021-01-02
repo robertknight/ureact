@@ -1,11 +1,11 @@
-const { assert } = require("chai");
-const sinon = require("sinon");
-const { JSDOM } = require("jsdom");
+import chai from "chai";
+import * as sinon from "sinon";
+import { JSDOM } from "jsdom";
+const { assert } = chai;
 
-const {
-  createElement: h,
+import {
+  createElement as h,
   render,
-
   useCallback,
   // `useContext` is not here because it is tested separately.
   useEffect,
@@ -14,7 +14,7 @@ const {
   useReducer,
   useRef,
   useState,
-} = require("../build/index");
+} from "../build/index.js";
 
 describe("hooks", () => {
   let jsdom;
