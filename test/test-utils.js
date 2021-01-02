@@ -100,5 +100,23 @@ describe("test-utils", () => {
 
       assert.equal(container.innerHTML, "<button>2</button>");
     });
+
+    it("only flushes when outermost call to `act` returns", () => {
+      const Widget = () => {
+        const [count, setCount] = useState(0);
+        return h("button", { onClick: () => setCount((c) => c + 1) }, count);
+      };
+
+      const container = testRender(h(Widget));
+      const button = container.querySelector("button");
+
+      act(() => {
+        act(() => {
+          button.click();
+        });
+        assert.equal(container.innerHTML, "<button>0</button>");
+      });
+      assert.equal(container.innerHTML, "<button>1</button>");
+    });
   });
 });
