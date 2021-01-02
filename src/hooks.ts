@@ -1,5 +1,3 @@
-export let currentHooks: HookState | null = null;
-
 interface StateHook<S> {
   type: "state";
   value: S;
@@ -154,6 +152,8 @@ export class HookState {
     return hook;
   }
 }
+
+let currentHooks: HookState | null = null;
 
 export function setHookState(hs: HookState | null) {
   currentHooks = hs;
