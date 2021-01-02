@@ -2,7 +2,13 @@ const { assert } = require("chai");
 const sinon = require("sinon");
 const { JSDOM } = require("jsdom");
 
-const { Fragment, createElement: h, render } = require("../build/index");
+const {
+  createElement: h,
+  render,
+
+  Fragment,
+  createRef,
+} = require("../build/index");
 
 describe("utilities", () => {
   let jsdom;
@@ -38,6 +44,13 @@ describe("utilities", () => {
         container.innerHTML,
         "<div>One</div><div>Two</div><div>Three</div>"
       );
+    });
+  });
+
+  describe("createRef", () => {
+    it("returns a value that can be used as a `ref` prop", () => {
+      const ref = createRef();
+      assert.deepEqual(ref, { current: null });
     });
   });
 });
