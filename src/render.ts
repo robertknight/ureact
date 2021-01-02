@@ -506,3 +506,16 @@ export function render(vnode: VNodeChild, container: Element) {
   const root = activeRoots.get(container) ?? new Root(container);
   root.render(vnode);
 }
+
+/**
+ * Remove any rendered component from a DOM element and clean up any associated
+ * state.
+ */
+export function unmountComponentAtNode(container: Element) {
+  const root = activeRoots.get(container);
+  if (!root) {
+    return false;
+  }
+  root.unmount();
+  return true;
+}

@@ -2,7 +2,11 @@ const { assert } = require("chai");
 const sinon = require("sinon");
 const { JSDOM } = require("jsdom");
 
-const { createElement: h, render } = require("../build/index");
+const {
+  createElement: h,
+  render,
+  unmountComponentAtNode,
+} = require("../build/index");
 
 /**
  * Attach a numeric tag, starting at 1, to each node in a sequence.
@@ -653,6 +657,27 @@ describe("rendering", () => {
       assert.equal(buttonOne.parentElement.parentElement, container);
       assert.equal(buttonTwo.textContent, "One");
       assert.equal(buttonTwo.parentElement.parentElement, container);
+    });
+  });
+
+  describe("unmountComponentAtNode", () => {
+    it("removes DOM output and returns true if component is mounted in node", () => {
+      function Widget() {
+        return h("button", {}, "Click me");
+      }
+
+      const container = testRender(h(Widget));
+      assert.equal(container.innerHTML, "<button>Click me</button>");
+
+      const result = unmountComponentAtNode(container);
+
+      assert.equal(result, true);
+      assert.equal(container.innerHTML, "");
+    });
+
+    it("returns `false` no component is mounted in node", () => {
+      const container = document.createElement("div");
+      assert.equal(unmountComponentAtNode(container), false);
     });
   });
 });
