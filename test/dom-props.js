@@ -96,6 +96,20 @@ describe("DOM properties, attribute & event listeners", () => {
       assert.equal(child.tabIndex, 0);
     });
 
+    it("does not modify properties that did not change", () => {
+      const container = scratch.render(
+        h("a", { href: "https://example.org/" })
+      );
+      const child = container.firstChild;
+      assert.equal(child.href, "https://example.org/");
+
+      // Manually modify property so we can check if the next render changes it.
+      child.href = "https://manually-modified.org/";
+
+      scratch.render(h("a", { href: "https://example.org/" }));
+      assert.equal(child.href, "https://manually-modified.org/");
+    });
+
     it("updates attributes of existing element", () => {
       const container = scratch.render(h("div", { someAttr: 1 }));
       const child = container.firstChild;

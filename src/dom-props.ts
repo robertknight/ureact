@@ -74,6 +74,10 @@ function setProperty(
   oldValue: any,
   newValue: any
 ) {
+  if (Object.is(oldValue, newValue)) {
+    return;
+  }
+
   if (prop === "style") {
     updateInlineStyles(node as HTMLElement, oldValue || {}, newValue);
     return;
