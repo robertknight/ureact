@@ -1,12 +1,13 @@
-const { assert } = require("chai");
-const sinon = require("sinon");
-const { JSDOM } = require("jsdom");
+import chai from "chai";
+import sinon from "sinon";
+import { JSDOM } from "jsdom";
+const { assert } = chai;
 
-const {
-  createElement: h,
+import {
+  createElement as h,
   render,
   unmountComponentAtNode,
-} = require("../build/index");
+} from "../build/index.js";
 
 /**
  * Attach a numeric tag, starting at 1, to each node in a sequence.

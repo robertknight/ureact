@@ -1,7 +1,8 @@
-const { assert } = require("chai");
+import chai from "chai";
+const { assert } = chai;
 
-const { elementSymbol } = require("../build/jsx");
-const { createElement, isValidElement } = require("../build");
+import { elementSymbol } from "../build/jsx.js";
+import { createElement, isValidElement } from "../build/index.js";
 
 describe("JSX", () => {
   describe("createElement", () => {

@@ -1,6 +1,6 @@
-import { Props, Ref, VNodeChildren } from "./jsx";
+import { Props, Ref, VNodeChildren } from "./jsx.js";
 
-import { useMemo, useRef } from "./hooks";
+import { useMemo, useRef } from "./hooks.js";
 
 export function Fragment(props: Props) {
   return props.children;

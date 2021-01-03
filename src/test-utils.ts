@@ -1,4 +1,4 @@
-import { getRoots } from "./render";
+import { getRoots } from "./render.js";
 
 let actDepth = 0;
 

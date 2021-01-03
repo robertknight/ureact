@@ -1,4 +1,4 @@
-import { ContextProvider } from "./context";
+import { ContextProvider } from "./context.js";
 
 interface StateHook<S> {
   type: "state";
