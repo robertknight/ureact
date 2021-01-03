@@ -13,12 +13,8 @@ function isEventListener(prop: string) {
 /**
  * Create or update an event listener on a DOM element.
  */
-function setEventListener(
-  node: Element,
-  prop: string,
-  value: (e: Event) => any
-) {
-  const ureactEl = node as UReactElement;
+function setEventListener(el: Element, prop: string, value: (e: Event) => any) {
+  const ureactEl = el as UReactElement;
   const listeners =
     ureactEl._ureactListeners || (ureactEl._ureactListeners = {});
 
@@ -27,40 +23,40 @@ function setEventListener(
   // Use a heuristic to test if this is a native DOM event, in which case
   // it uses a lower-case name.
   const nameLower = prop.toLowerCase();
-  if (nameLower in node) {
+  if (nameLower in el) {
     eventName = nameLower.slice(2);
   }
 
   if (!listeners[eventName]) {
-    node.addEventListener(eventName, (event) => listeners[eventName]?.(event));
+    el.addEventListener(eventName, (event) => listeners[eventName]?.(event));
   }
   listeners[eventName] = value;
 }
 
-function unsetProperty(node: Element, prop: string) {
+function unsetProperty(el: Element, prop: string) {
   if (isEventListener(prop)) {
     const noopListener = () => {};
-    setEventListener(node, prop, noopListener);
+    setEventListener(el, prop, noopListener);
   }
 
-  if (prop in node) {
-    (node as any)[prop] = "";
+  if (prop in el) {
+    (el as any)[prop] = "";
   } else {
-    node.removeAttribute(prop);
+    el.removeAttribute(prop);
   }
 }
 
 function updateInlineStyles(
-  node: HTMLElement,
+  el: HTMLElement,
   oldValue: CSSStyleDeclaration,
   newValue: CSSStyleDeclaration
 ) {
   if (shallowEqual(oldValue, newValue)) {
     return;
   }
-  node.style.cssText = "";
+  el.style.cssText = "";
   for (let key in newValue) {
-    node.style[key] = newValue[key];
+    el.style[key] = newValue[key];
   }
 }
 
@@ -68,28 +64,23 @@ function updateInlineStyles(
  * Update the DOM property, attribute or event listener corresponding to
  * `prop`.
  */
-function setProperty(
-  node: Element,
-  prop: string,
-  oldValue: any,
-  newValue: any
-) {
+function setProperty(el: Element, prop: string, oldValue: any, newValue: any) {
   if (Object.is(oldValue, newValue)) {
     return;
   }
 
   if (prop === "style") {
-    updateInlineStyles(node as HTMLElement, oldValue || {}, newValue);
+    updateInlineStyles(el as HTMLElement, oldValue || {}, newValue);
   } else if (isEventListener(prop)) {
-    setEventListener(node, prop, newValue);
-  } else if (prop in node) {
-    (node as any)[prop] = newValue;
+    setEventListener(el, prop, newValue);
+  } else if (prop in el) {
+    (el as any)[prop] = newValue;
   } else if (prop === "dangerouslySetInnerHTML") {
     if (oldValue?.__html !== newValue.__html) {
-      node.innerHTML = newValue.__html;
+      el.innerHTML = newValue.__html;
     }
   } else {
-    node.setAttribute(prop, newValue);
+    el.setAttribute(prop, newValue);
   }
 }
 
@@ -98,19 +89,19 @@ function setProperty(
  * a new VDOM node.
  */
 export function diffElementProps(
-  node: Element,
+  el: Element,
   oldProps: Props,
   newProps: Props
 ) {
   for (let prop in oldProps) {
     if (prop !== "children" && !(prop in newProps)) {
-      unsetProperty(node, prop);
+      unsetProperty(el, prop);
     }
   }
 
   for (let prop in newProps) {
     if (prop !== "children") {
-      setProperty(node, prop, oldProps[prop], newProps[prop]);
+      setProperty(el, prop, oldProps[prop], newProps[prop]);
     }
   }
 }
