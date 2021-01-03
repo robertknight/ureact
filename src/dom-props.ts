@@ -25,9 +25,9 @@ function setEventListener(
 
   // Use a heuristic to test if this is a native DOM event, in which case
   // it uses a lower-case name.
-  const nameLower = eventName.toLowerCase();
+  const nameLower = prop.toLowerCase();
   if (nameLower in node) {
-    eventName = nameLower;
+    eventName = nameLower.slice(2);
   }
 
   if (!listeners[eventName]) {

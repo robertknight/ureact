@@ -85,16 +85,29 @@ describe("rendering", () => {
       assert.equal(container.innerHTML, '<div customattr="test-value"></div>');
     });
 
-    it("sets event listeners", () => {
-      const onClick = sinon.stub();
-      const container = testRender(h("button", { onClick }));
-      const button = container.querySelector("button");
+    [
+      {
+        element: "button",
+        propName: "onClick",
+        eventName: "click",
+      },
+      {
+        element: "input",
+        propName: "onInput",
+        eventName: "input",
+      },
+    ].forEach(({ element, propName, eventName }) => {
+      it(`sets event listeners (${propName})`, () => {
+        const handler = sinon.stub();
+        const container = testRender(h(element, { [propName]: handler }));
+        const button = container.querySelector(element);
 
-      const event = new jsdom.window.Event("click");
-      button.dispatchEvent(event);
+        const event = new jsdom.window.Event(eventName);
+        button.dispatchEvent(event);
 
-      sinon.assert.calledOnce(onClick);
-      sinon.assert.calledWith(onClick, event);
+        sinon.assert.calledOnce(handler);
+        sinon.assert.calledWith(handler, event);
+      });
     });
 
     it("sets `ref` prop to DOM node", () => {
