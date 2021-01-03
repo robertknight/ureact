@@ -1,4 +1,4 @@
-import { Props, VNode, VNodeChildren, isValidElement } from "./jsx.js";
+import { VNode, VNodeChildren, isValidElement } from "./jsx.js";
 import { ContextProvider } from "./context.js";
 import { EffectTiming, HookState, setHookState } from "./hooks.js";
 import { diffElementProps } from "./dom-props.js";
@@ -35,12 +35,6 @@ interface Component {
 
   /** Whether this component is an `<svg>` DOM component or a child of one. */
   svg: boolean;
-}
-
-// Properties added by existing DOM elements into which a UReact component tree
-// is rendered.
-interface UReactRootElement extends Element {
-  _ureactRoot?: Root;
 }
 
 /**
@@ -100,13 +94,6 @@ function getParentDom(c: Component) {
     parent = parent.parent;
   }
   return parent ? parent.dom : null;
-}
-
-function isAncestorOf(ancestor: Component, c: Component | null) {
-  while (c && c !== ancestor) {
-    c = c.parent;
-  }
-  return c === ancestor;
 }
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
