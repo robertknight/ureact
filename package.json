@@ -2,7 +2,7 @@
   "name": "ureact",
   "version": "0.1.0",
   "description": "Small React-like UI library",
-  "main": "dist/index.js",
+  "main": "dist/ureact.js",
   "repository": "https://github.com/robertknight/ureact",
   "author": "Robert Knight <robertknight@gmail.com>",
   "license": "MIT",
