@@ -1,6 +1,5 @@
 import chai from "chai";
 import * as sinon from "sinon";
-import { JSDOM } from "jsdom";
 const { assert } = chai;
 
 import {
@@ -13,24 +12,18 @@ import {
 
 import { act } from "../build/test-utils.js";
 
-describe("test-utils", () => {
-  let jsdom;
-  let document;
+import { createScratchpad } from "./utils/scratchpad.js";
 
-  before(() => {
-    jsdom = new JSDOM(`<!DOCTYPE html><html><body></body></html>`);
-    document = jsdom.window.document;
+describe("test-utils", () => {
+  const scratch = createScratchpad();
+
+  beforeEach(() => {
+    scratch.reset();
   });
 
   after(() => {
-    jsdom.window.close();
+    scratch.cleanup();
   });
-
-  const testRender = (vnode) => {
-    const container = document.createElement("div");
-    render(vnode, container);
-    return container;
-  };
 
   describe("act", () => {
     it("flushes pending state updates", () => {
@@ -42,7 +35,7 @@ describe("test-utils", () => {
         return value;
       };
 
-      const container = testRender(h(Widget));
+      const container = scratch.render(h(Widget));
       assert.equal(container.innerHTML, "0");
 
       act(() => {});
@@ -59,7 +52,7 @@ describe("test-utils", () => {
         return null;
       };
 
-      const container = testRender(h(Widget));
+      const container = scratch.render(h(Widget));
       assert.equal(effectCount, 0);
 
       act(() => {});
@@ -76,7 +69,7 @@ describe("test-utils", () => {
         return null;
       };
 
-      const container = testRender(h(Widget));
+      const container = scratch.render(h(Widget));
       assert.equal(effectCount, 0);
 
       act(() => {});
@@ -90,7 +83,7 @@ describe("test-utils", () => {
         return h("button", { onClick: () => setCount((c) => c + 1) }, count);
       };
 
-      const container = testRender(h(Widget));
+      const container = scratch.render(h(Widget));
       const button = container.querySelector("button");
 
       await act(async () => {
@@ -108,7 +101,7 @@ describe("test-utils", () => {
         return h("button", { onClick: () => setCount((c) => c + 1) }, count);
       };
 
-      const container = testRender(h(Widget));
+      const container = scratch.render(h(Widget));
       const button = container.querySelector("button");
 
       act(() => {

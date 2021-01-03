@@ -1,6 +1,5 @@
 import chai from "chai";
 import * as sinon from "sinon";
-import { JSDOM } from "jsdom";
 const { assert } = chai;
 
 import {
@@ -11,28 +10,22 @@ import {
   memo,
 } from "../build/index.js";
 
-describe("utilities", () => {
-  let jsdom;
-  let document;
+import { createScratchpad } from "./utils/scratchpad.js";
 
-  before(() => {
-    jsdom = new JSDOM(`<!DOCTYPE html><html><body></body></html>`);
-    document = jsdom.window.document;
+describe("utilities", () => {
+  const scratch = createScratchpad();
+
+  beforeEach(() => {
+    scratch.reset();
   });
 
   after(() => {
-    jsdom.window.close();
+    scratch.cleanup();
   });
-
-  const testRender = (vnode) => {
-    const container = document.createElement("div");
-    render(vnode, container);
-    return container;
-  };
 
   describe("Fragment", () => {
     it("renders children", () => {
-      const container = testRender(
+      const container = scratch.render(
         h(
           Fragment,
           {},
@@ -70,14 +63,14 @@ describe("utilities", () => {
         return h("div", {}, "Hello ", firstName, " ", lastName);
       });
 
-      const container = testRender(
+      const container = scratch.render(
         h(Component, { firstName: "Jim", lastName: "Smith" })
       );
       assert.equal(renderCount, 1);
       assert.equal(container.innerHTML, "<div>Hello Jim Smith</div>");
 
       // Re-render with same props.
-      render(h(Component, { firstName: "Jim", lastName: "Smith" }), container);
+      scratch.render(h(Component, { firstName: "Jim", lastName: "Smith" }));
       assert.equal(container.innerHTML, "<div>Hello Jim Smith</div>");
       assert.equal(renderCount, 1);
 
@@ -93,11 +86,11 @@ describe("utilities", () => {
       assert.equal(renderCount, 2);
 
       // Re-render with removed prop.
-      render(h(Component, { firstName: "Jim", lastName: "Smith" }), container);
+      scratch.render(h(Component, { firstName: "Jim", lastName: "Smith" }));
       assert.equal(renderCount, 3);
 
       // Re-render with changed prop.
-      render(h(Component, { firstName: "Jim", lastName: "Jones" }), container);
+      scratch.render(h(Component, { firstName: "Jim", lastName: "Jones" }));
       assert.equal(renderCount, 4);
       assert.equal(container.innerHTML, "<div>Hello Jim Jones</div>");
     });

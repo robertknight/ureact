@@ -1,6 +1,5 @@
 import chai from "chai";
 import sinon from "sinon";
-import { JSDOM } from "jsdom";
 const { assert } = chai;
 
 import {
@@ -8,6 +7,8 @@ import {
   render,
   unmountComponentAtNode,
 } from "../build/index.js";
+
+import { createScratchpad } from "./utils/scratchpad.js";
 
 /**
  * Attach a numeric tag, starting at 1, to each node in a sequence.
@@ -29,28 +30,20 @@ function getTags(nodes) {
 const nullishValues = [null, undefined, false, true];
 
 describe("rendering", () => {
-  let jsdom;
-  let document;
+  const scratch = createScratchpad();
 
-  before(() => {
-    jsdom = new JSDOM(`<!DOCTYPE html><html><body></body></html>`);
-    document = jsdom.window.document;
+  beforeEach(() => {
+    scratch.reset();
   });
 
   after(() => {
-    jsdom.window.close();
+    scratch.cleanup();
   });
-
-  const testRender = (vnode) => {
-    const container = document.createElement("div");
-    render(vnode, container);
-    return container;
-  };
 
   describe("empty VNode rendering", () => {
     nullishValues.forEach((value) => {
       it(`"${value}" renders nothing`, () => {
-        const container = testRender(null);
+        const container = scratch.render(null);
         assert.equal(container.innerHTML, "");
       });
     });
@@ -58,31 +51,31 @@ describe("rendering", () => {
 
   describe("DOM text rendering", () => {
     it("renders a text node", () => {
-      const container = testRender("Hello world");
+      const container = scratch.render("Hello world");
       assert.equal(container.innerHTML, "Hello world");
     });
 
     it("updates a text node", () => {
-      const container = testRender("Hello world");
+      const container = scratch.render("Hello world");
       const text = container.firstChild;
-      render("Goodbye", container);
+      scratch.render("Goodbye");
       assert.equal(text.data, "Goodbye");
     });
   });
 
   describe("DOM element rendering", () => {
     it("creates a DOM element", () => {
-      const container = testRender(h("span"));
+      const container = scratch.render(h("span"));
       assert.equal(container.innerHTML, "<span></span>");
     });
 
     it("sets element properties", () => {
-      const container = testRender(h("a", { href: "https://example.com" }));
+      const container = scratch.render(h("a", { href: "https://example.com" }));
       assert.equal(container.innerHTML, '<a href="https://example.com"></a>');
     });
 
     it("sets attributes", () => {
-      const container = testRender(h("div", { customAttr: "test-value" }));
+      const container = scratch.render(h("div", { customAttr: "test-value" }));
       assert.equal(container.innerHTML, '<div customattr="test-value"></div>');
     });
 
@@ -100,10 +93,10 @@ describe("rendering", () => {
     ].forEach(({ element, propName, eventName }) => {
       it(`sets event listeners (${propName})`, () => {
         const handler = sinon.stub();
-        const container = testRender(h(element, { [propName]: handler }));
+        const container = scratch.render(h(element, { [propName]: handler }));
         const button = container.querySelector(element);
 
-        const event = new jsdom.window.Event(eventName);
+        const event = new scratch.window.Event(eventName);
         button.dispatchEvent(event);
 
         sinon.assert.calledOnce(handler);
@@ -113,16 +106,16 @@ describe("rendering", () => {
 
     it("sets `ref` prop to DOM node", () => {
       const ref = {};
-      const container = testRender(h("div", { ref }));
+      const container = scratch.render(h("div", { ref }));
       assert.equal(container.innerHTML, "<div></div>");
       assert.equal(ref.current, container.firstChild);
     });
 
     it("unsets `ref` when DOM component is unmounted", () => {
       const ref = {};
-      const container = testRender(h("div", { ref }));
+      const container = scratch.render(h("div", { ref }));
       assert.equal(ref.current, container.firstChild);
-      render(h(null), container);
+      scratch.render(h(null));
       assert.equal(ref.current, null);
     });
   });
@@ -131,7 +124,7 @@ describe("rendering", () => {
     let CustomWidget;
 
     before(() => {
-      CustomWidget = class CustomWidget extends jsdom.window.HTMLElement {
+      CustomWidget = class CustomWidget extends scratch.window.HTMLElement {
         constructor() {
           super();
           this._someProperty = 0;
@@ -146,17 +139,19 @@ describe("rendering", () => {
           this.setAttribute("some-property", val);
         }
       };
-      jsdom.window.customElements.define("custom-widget", CustomWidget);
+      scratch.window.customElements.define("custom-widget", CustomWidget);
     });
 
     it("creates a custom DOM element", () => {
-      const container = testRender(h("custom-widget"));
+      const container = scratch.render(h("custom-widget"));
       assert.equal(container.innerHTML, "<custom-widget></custom-widget>");
       assert.isTrue(container.firstChild instanceof CustomWidget);
     });
 
     it("sets custom DOM element properties", () => {
-      const container = testRender(h("custom-widget", { someProperty: 42 }));
+      const container = scratch.render(
+        h("custom-widget", { someProperty: 42 })
+      );
       assert.equal(container.firstChild.someProperty, 42);
       assert.equal(
         container.innerHTML,
@@ -168,11 +163,11 @@ describe("rendering", () => {
       (eventName) => {
         it(`can listen to custom events (${eventName})`, () => {
           const callback = sinon.stub();
-          const container = testRender(
+          const container = scratch.render(
             h("custom-widget", { ["on" + eventName]: callback })
           );
 
-          const event = new jsdom.window.Event(eventName);
+          const event = new scratch.window.Event(eventName);
           container.firstChild.dispatchEvent(event);
 
           sinon.assert.calledWith(callback, event);
@@ -183,40 +178,40 @@ describe("rendering", () => {
 
   describe("DOM element child rendering", () => {
     it("renders element child", () => {
-      const container = testRender(h("p", {}, h("b", {})));
+      const container = scratch.render(h("p", {}, h("b", {})));
       assert.equal(container.innerHTML, "<p><b></b></p>");
     });
 
     it("renders array of element children", () => {
-      const container = testRender(h("p", {}, h("b", {}), h("i", {})));
+      const container = scratch.render(h("p", {}, h("b", {}), h("i", {})));
       assert.equal(container.innerHTML, "<p><b></b><i></i></p>");
     });
 
     it("renders text child", () => {
-      const container = testRender(h("p", {}, "Hello world"));
+      const container = scratch.render(h("p", {}, "Hello world"));
       assert.equal(container.innerHTML, "<p>Hello world</p>");
     });
 
     it("renders number child", () => {
-      const container = testRender(h("p", {}, 42));
+      const container = scratch.render(h("p", {}, 42));
       assert.equal(container.innerHTML, "<p>42</p>");
     });
 
     it("renders array of text children", () => {
-      const container = testRender(h("p", {}, "Hello", " ", "world"));
+      const container = scratch.render(h("p", {}, "Hello", " ", "world"));
       assert.equal(container.innerHTML, "<p>Hello world</p>");
     });
 
     nullishValues.forEach((value) => {
       it(`ignores nullish children (${value})`, () => {
-        const container = testRender(h("p", {}, "Hello", value, " world"));
+        const container = scratch.render(h("p", {}, "Hello", value, " world"));
         assert.equal(container.innerHTML, "<p>Hello world</p>");
       });
     });
 
     it("renders array children", () => {
       const items = ["Item 1", "Item 2", "Item 3"];
-      const container = testRender(
+      const container = scratch.render(
         h(
           "ul",
           {},
@@ -231,56 +226,58 @@ describe("rendering", () => {
 
     it("throws an error if child is not a renderable item", () => {
       assert.throws(() => {
-        testRender(h("ul", {}, "One", {}, "Two"));
+        scratch.render(h("ul", {}, "One", {}, "Two"));
       }, "Object is not a valid element");
     });
   });
 
   describe("DOM element re-rendering", () => {
     it("updates properties of existing element", () => {
-      const container = testRender(h("a", { href: "https://example.org/" }));
+      const container = scratch.render(
+        h("a", { href: "https://example.org/" })
+      );
       const child = container.firstChild;
 
       assert.equal(child.href, "https://example.org/");
 
-      render(h("a", { href: "https://foobar.com/" }), container);
+      scratch.render(h("a", { href: "https://foobar.com/" }));
 
       assert.equal(container.firstChild, child);
       assert.equal(child.href, "https://foobar.com/");
     });
 
     it("removes properties that are no longer present", () => {
-      const container = testRender(
+      const container = scratch.render(
         h("a", { href: "https://example.org/", tabIndex: 42 })
       );
       const child = container.firstChild;
 
       assert.equal(child.tabIndex, 42);
 
-      render(h("a", { href: "https://foobar.com/" }), container);
+      scratch.render(h("a", { href: "https://foobar.com/" }));
 
       assert.equal(child.tabIndex, 0);
     });
 
     it("updates attributes of existing element", () => {
-      const container = testRender(h("div", { someAttr: 1 }));
+      const container = scratch.render(h("div", { someAttr: 1 }));
       const child = container.firstChild;
 
       assert.equal(child.getAttribute("someAttr"), "1");
 
-      render(h("div", { someAttr: 2 }), container);
+      scratch.render(h("div", { someAttr: 2 }));
 
       assert.equal(container.firstChild, child);
       assert.equal(child.getAttribute("someAttr"), "2");
     });
 
     it("removes attributes that are no longer present", () => {
-      const container = testRender(h("div", { someAttr: 1 }));
+      const container = scratch.render(h("div", { someAttr: 1 }));
       const child = container.firstChild;
 
       assert.equal(child.getAttribute("someAttr"), "1");
 
-      render(h("div"), container);
+      scratch.render(h("div"));
 
       assert.equal(container.firstChild, child);
       assert.equal(child.getAttribute("someAttr"), null);
@@ -290,12 +287,12 @@ describe("rendering", () => {
       const callback1 = sinon.stub();
       const callback2 = sinon.stub();
 
-      const container = testRender(h("button", { onClick: callback1 }));
+      const container = scratch.render(h("button", { onClick: callback1 }));
 
       container.firstChild.click();
       sinon.assert.calledOnce(callback1);
 
-      render(h("button", { onClick: callback2 }), container);
+      scratch.render(h("button", { onClick: callback2 }));
       container.firstChild.click();
 
       sinon.assert.calledOnce(callback1);
@@ -305,23 +302,23 @@ describe("rendering", () => {
     it("removes event listeners that are no longer present", () => {
       const callback = sinon.stub();
 
-      const container = testRender(h("button", { onClick: callback }));
+      const container = scratch.render(h("button", { onClick: callback }));
 
       container.firstChild.click();
       sinon.assert.calledOnce(callback);
 
       callback.resetHistory();
-      render(h("button"), container);
+      scratch.render(h("button"));
       container.firstChild.click();
 
       sinon.assert.notCalled(callback);
     });
 
     it("updates child text nodes", () => {
-      const container = testRender(h("div", {}, "Hello ", "world"));
+      const container = scratch.render(h("div", {}, "Hello ", "world"));
 
       const textNodes = [...container.firstChild.childNodes];
-      render(h("div", {}, "Goodbye ", "everyone"), container);
+      scratch.render(h("div", {}, "Goodbye ", "everyone"));
 
       assert.equal(container.innerHTML, "<div>Goodbye everyone</div>");
       const newTextNodes = [...container.firstChild.childNodes];
@@ -329,7 +326,7 @@ describe("rendering", () => {
     });
 
     it("updates unkeyed children", () => {
-      const container = testRender(
+      const container = scratch.render(
         h(
           "div",
           {},
@@ -364,23 +361,23 @@ describe("rendering", () => {
     });
 
     it("removes element children that are no longer present", () => {
-      const container = testRender(
+      const container = scratch.render(
         h("div", {}, "Hello ", h("b", {}, "brave new"), "world")
       );
-      render(h("div", {}, "Hello ", "world"), container);
+      scratch.render(h("div", {}, "Hello ", "world"));
       assert.equal(container.innerHTML, "<div>Hello world</div>");
     });
 
     it("removes text children that are no longer present", () => {
-      const container = testRender(
+      const container = scratch.render(
         h("div", {}, "Hello ", "brave new ", "world")
       );
-      render(h("div", {}, "Hello ", "world"), container);
+      scratch.render(h("div", {}, "Hello ", "world"));
       assert.equal(container.innerHTML, "<div>Hello world</div>");
     });
 
     it("updates children with matching key", () => {
-      const container = testRender(
+      const container = scratch.render(
         h(
           "ul",
           {},
@@ -405,7 +402,7 @@ describe("rendering", () => {
     });
 
     it("reorders children with matching keys", () => {
-      const container = testRender(
+      const container = scratch.render(
         h(
           "ul",
           {},
@@ -431,7 +428,7 @@ describe("rendering", () => {
     });
 
     it("inserts new keyed children at correct location", () => {
-      const container = testRender(
+      const container = scratch.render(
         h("ul", {}, h("li", { key: 1 }, "Item 1"), h("li", {}, "Last Item"))
       );
 
@@ -453,7 +450,7 @@ describe("rendering", () => {
     });
 
     it("inserts new unkeyed children at correct location", () => {
-      const container = testRender(
+      const container = scratch.render(
         h(
           "ul",
           {},
@@ -484,15 +481,15 @@ describe("rendering", () => {
     });
 
     it("removes a DOM child if the type changes", () => {
-      const container = testRender(h("p", {}, h("i", {}, "Hello")));
-      render(h("p", {}, h("b", {}, "Hello")), container);
+      const container = scratch.render(h("p", {}, h("i", {}, "Hello")));
+      scratch.render(h("p", {}, h("b", {}, "Hello")));
       assert.equal(container.innerHTML, "<p><b>Hello</b></p>");
     });
 
     nullishValues.forEach((nullishValue) => {
       it("removes a conditionally rendered child if condition changes to false", () => {
-        const container = testRender(h("p", {}, h("i", {}, "Hello")));
-        render(h("p", {}, nullishValue), container);
+        const container = scratch.render(h("p", {}, h("i", {}, "Hello")));
+        scratch.render(h("p", {}, nullishValue));
         assert.equal(container.innerHTML, "<p></p>");
       });
     });
@@ -504,27 +501,29 @@ describe("rendering", () => {
 
   describe("custom component rendering", () => {
     it("renders a custom component", () => {
-      const container = testRender(h(Button, { label: "Click me" }));
+      const container = scratch.render(h(Button, { label: "Click me" }));
       assert.equal(container.innerHTML, "<button>Click me</button>");
     });
 
     nullishValues.forEach((nullishValue) => {
       it(`renders a custom component that returns ${nullishValue}`, () => {
         const EmptyComponent = () => nullishValue;
-        const container = testRender(h(EmptyComponent));
+        const container = scratch.render(h(EmptyComponent));
         assert.equal(container.innerHTML, "");
       });
     });
 
     it("renders a custom component that returns a string", () => {
       const TextComponent = ({ text }) => text;
-      const container = testRender(h(TextComponent, { text: "Hello world" }));
+      const container = scratch.render(
+        h(TextComponent, { text: "Hello world" })
+      );
       assert.equal(container.innerHTML, "Hello world");
     });
 
     it("renders a custom component that returns an array", () => {
       const ArrayComponent = () => ["Hello ", "world"];
-      const container = testRender(h(ArrayComponent));
+      const container = scratch.render(h(ArrayComponent));
       assert.equal(container.innerHTML, "Hello world");
     });
 
@@ -532,7 +531,7 @@ describe("rendering", () => {
       function Button({ children }) {
         return h("button", {}, children);
       }
-      const container = testRender(h(Button, {}, "Click me"));
+      const container = scratch.render(h(Button, {}, "Click me"));
       assert.equal(container.innerHTML, "<button>Click me</button>");
     });
 
@@ -545,7 +544,7 @@ describe("rendering", () => {
           h(Button, { label: "Second" })
         );
       }
-      const container = testRender(h(Parent));
+      const container = scratch.render(h(Parent));
       assert.equal(
         container.innerHTML,
         "<div><button>First</button><button>Second</button></div>"
@@ -557,7 +556,7 @@ describe("rendering", () => {
       const SecondLevel = ({ children }) => h(ThirdLevel, {}, children);
       const FirstLevel = ({ children }) => h(SecondLevel, {}, children);
 
-      const container = testRender(h(FirstLevel, {}, "Hello world"));
+      const container = scratch.render(h(FirstLevel, {}, "Hello world"));
 
       assert.equal(container.innerHTML, "<p>Hello world</p>");
     });
@@ -565,29 +564,29 @@ describe("rendering", () => {
 
   describe("custom component re-rendering", () => {
     it("updates a custom component", () => {
-      const container = testRender(h(Button, { label: "Click me" }));
-      render(h(Button, { label: "Updated" }), container);
+      const container = scratch.render(h(Button, { label: "Click me" }));
+      scratch.render(h(Button, { label: "Updated" }));
       assert.equal(container.innerHTML, "<button>Updated</button>");
     });
 
     it("updates a custom component that returns text", () => {
       const TextComponent = ({ children }) => children;
-      const container = testRender(h(TextComponent, {}, "One"));
+      const container = scratch.render(h(TextComponent, {}, "One"));
       assert.equal(container.innerHTML, "One");
 
-      render(h(TextComponent, {}, "Two"), container);
+      scratch.render(h(TextComponent, {}, "Two"));
       assert.equal(container.innerHTML, "Two");
 
-      render(h(TextComponent, {}, "Three"), container);
+      scratch.render(h(TextComponent, {}, "Three"));
       assert.equal(container.innerHTML, "Three");
     });
 
     it("updates a custom component that returns null", () => {
       const EmptyComponent = () => null;
-      const container = testRender(h(EmptyComponent));
+      const container = scratch.render(h(EmptyComponent));
 
-      render(h(EmptyComponent), container);
-      render(h(EmptyComponent), container);
+      scratch.render(h(EmptyComponent));
+      scratch.render(h(EmptyComponent));
 
       assert.equal(container.innerHTML, "");
     });
@@ -596,15 +595,15 @@ describe("rendering", () => {
       function Button({ children }) {
         return h("button", {}, children);
       }
-      const container = testRender(h(Button, {}, "Click me"));
-      render(h(Button, {}, "Updated"), container);
+      const container = scratch.render(h(Button, {}, "Click me"));
+      scratch.render(h(Button, {}, "Updated"));
       assert.equal(container.innerHTML, "<button>Updated</button>");
     });
 
     it("updates a custom component that returns an array", () => {
       const List = ({ items }) => items.map((item) => h("li", {}, item));
-      const container = testRender(h(List, { items: ["One", "two"] }));
-      render(h(List, { items: ["Three", "four", "five"] }), container);
+      const container = scratch.render(h(List, { items: ["One", "two"] }));
+      scratch.render(h(List, { items: ["Three", "four", "five"] }));
       assert.equal(
         container.innerHTML,
         "<li>Three</li><li>four</li><li>five</li>"
@@ -615,7 +614,7 @@ describe("rendering", () => {
       function Button({ children }) {
         return h("button", {}, children);
       }
-      const container = testRender(
+      const container = scratch.render(
         h("div", {}, h(Button, { key: 1 }, "One"), h(Button, { key: 2 }, "Two"))
       );
 
@@ -648,7 +647,7 @@ describe("rendering", () => {
       function Button({ children }) {
         return h("button", {}, children);
       }
-      const container = testRender(
+      const container = scratch.render(
         h("div", {}, h(Button, {}, "One"), h(Button, {}, "Two"))
       );
 
@@ -689,8 +688,8 @@ describe("rendering", () => {
         return h("div", {}, childNode);
       };
 
-      const container = testRender(h(App));
-      render(h(App), container);
+      const container = scratch.render(h(App));
+      scratch.render(h(App));
 
       assert.equal(container.innerHTML, "<div>Hello world</div>");
       assert.equal(parentRenderCount, 2);
@@ -704,7 +703,7 @@ describe("rendering", () => {
         return h("button", {}, "Click me");
       }
 
-      const container = testRender(h(Widget));
+      const container = scratch.render(h(Widget));
       assert.equal(container.innerHTML, "<button>Click me</button>");
 
       const result = unmountComponentAtNode(container);
@@ -714,7 +713,7 @@ describe("rendering", () => {
     });
 
     it("returns `false` no component is mounted in node", () => {
-      const container = document.createElement("div");
+      const container = scratch.document.createElement("div");
       assert.equal(unmountComponentAtNode(container), false);
     });
   });

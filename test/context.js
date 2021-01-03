@@ -1,6 +1,5 @@
 import chai from "chai";
 import sinon from "sinon";
-import { JSDOM } from "jsdom";
 const { assert } = chai;
 
 import {
@@ -12,25 +11,18 @@ import {
 } from "../build/index.js";
 
 import { delay } from "./utils/delay.js";
+import { createScratchpad } from "./utils/scratchpad.js";
 
 describe("context", () => {
-  let jsdom;
-  let document;
+  const scratch = createScratchpad();
 
-  before(() => {
-    jsdom = new JSDOM(`<!DOCTYPE html><html><body></body></html>`);
-    document = jsdom.window.document;
+  beforeEach(() => {
+    scratch.reset();
   });
 
   after(() => {
-    jsdom.window.close();
+    scratch.cleanup();
   });
-
-  const testRender = (vnode) => {
-    const container = document.createElement("div");
-    render(vnode, container);
-    return container;
-  };
 
   const context = createContext("initial-value");
   const Consumer = () => {
@@ -53,37 +45,37 @@ describe("context", () => {
   };
 
   it("passes default value down to children", () => {
-    const container = testRender(h(ContextTest));
+    const container = scratch.render(h(ContextTest));
     assert.equal(container.innerHTML, "<div>initial-value</div>");
   });
 
   it("allows `undefined` to override default value", () => {
-    const container = testRender(h(ContextTest, { value: undefined }));
+    const container = scratch.render(h(ContextTest, { value: undefined }));
     assert.equal(container.innerHTML, "<div>undefined</div>");
   });
 
   it("passes specified value down to children", () => {
-    const container = testRender(h(ContextTest, { value: "some-value" }));
+    const container = scratch.render(h(ContextTest, { value: "some-value" }));
     assert.equal(container.innerHTML, "<div>some-value</div>");
   });
 
   it("re-renders subscribed children when context changes", async () => {
-    const container = testRender(h(ContextTest, { value: "some-value" }));
+    const container = scratch.render(h(ContextTest, { value: "some-value" }));
 
-    render(h(ContextTest, { value: "updated-value" }), container);
+    scratch.render(h(ContextTest, { value: "updated-value" }));
 
     // After a re-render, the DOM should display the new value.
     await delay(0);
     assert.equal(container.innerHTML, "<div>updated-value</div>");
 
     // Test a second update.
-    render(h(ContextTest, { value: "updated-value-2" }), container);
+    scratch.render(h(ContextTest, { value: "updated-value-2" }));
     await delay(0);
     assert.equal(container.innerHTML, "<div>updated-value-2</div>");
   });
 
   it("unsubscribes children when unmounted", async () => {
-    const container = testRender(h(ContextTest, { value: "some-value" }));
+    const container = scratch.render(h(ContextTest, { value: "some-value" }));
 
     const output = container.querySelector("div");
     assert.equal(output.innerHTML, "some-value");
@@ -109,7 +101,7 @@ describe("context", () => {
       return h("div", {}, valueA, " ", valueB);
     };
 
-    const container = testRender(
+    const container = scratch.render(
       h(contextA.Provider, {}, h(contextB.Provider, {}, h(Consumer)))
     );
 
@@ -124,7 +116,7 @@ describe("context", () => {
       return h("div", {}, value);
     };
 
-    const container = testRender(
+    const container = scratch.render(
       h(
         context.Provider,
         { value: "first" },

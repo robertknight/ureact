@@ -1,6 +1,5 @@
 import chai from "chai";
 import * as sinon from "sinon";
-import { JSDOM } from "jsdom";
 const { assert } = chai;
 
 import {
@@ -16,24 +15,18 @@ import {
   useState,
 } from "../build/index.js";
 
-describe("hooks", () => {
-  let jsdom;
-  let document;
+import { createScratchpad } from "./utils/scratchpad.js";
 
-  before(() => {
-    jsdom = new JSDOM(`<!DOCTYPE html><html><body></body></html>`);
-    document = jsdom.window.document;
+describe("hooks", () => {
+  const scratch = createScratchpad();
+
+  beforeEach(() => {
+    scratch.reset();
   });
 
   after(() => {
-    jsdom.window.close();
+    scratch.cleanup();
   });
-
-  const testRender = (vnode) => {
-    const container = document.createElement("div");
-    render(vnode, container);
-    return container;
-  };
 
   function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -51,7 +44,7 @@ describe("hooks", () => {
         const [value] = useState("Hello");
         return h("div", {}, value);
       };
-      const container = testRender(h(Widget));
+      const container = scratch.render(h(Widget));
       assert.equal(container.innerHTML, "<div>Hello</div>");
     });
 
@@ -65,8 +58,8 @@ describe("hooks", () => {
         return h("div", {}, value);
       };
 
-      const container = testRender(h(Widget));
-      render(h(Widget), container);
+      const container = scratch.render(h(Widget));
+      scratch.render(h(Widget));
 
       assert.equal(container.innerHTML, "<div>Hello</div>");
       assert.equal(lazyInitCount, 1); // Lazy initializer should only be called the first time.
@@ -77,8 +70,8 @@ describe("hooks", () => {
         const [state] = useState(initialState);
         return state;
       };
-      const container = testRender(h(Widget, { initialState: "Hello" }));
-      render(h(Widget, { initialState: "World" }), container);
+      const container = scratch.render(h(Widget, { initialState: "Hello" }));
+      scratch.render(h(Widget, { initialState: "World" }));
       assert.equal(container.innerHTML, "Hello");
     });
 
@@ -88,7 +81,7 @@ describe("hooks", () => {
         const [valueB] = useState("world");
         return h("div", {}, valueA, valueB);
       };
-      const container = testRender(h(Widget));
+      const container = scratch.render(h(Widget));
       assert.equal(container.innerHTML, "<div>Hello world</div>");
     });
 
@@ -99,7 +92,7 @@ describe("hooks", () => {
         return h("button", { onClick: increment }, count);
       };
 
-      const container = testRender(h(Counter));
+      const container = scratch.render(h(Counter));
       assert.equal(container.innerHTML, "<button>0</button>");
 
       container.querySelector("button").click();
@@ -120,7 +113,7 @@ describe("hooks", () => {
         return h("button", { onClick: increment }, count);
       };
 
-      const container = testRender(h(Counter));
+      const container = scratch.render(h(Counter));
       assert.equal(container.innerHTML, "<button>0</button>");
 
       container.querySelector("button").click();
@@ -141,10 +134,10 @@ describe("hooks", () => {
         return h("button", { onClick: increment }, count);
       };
 
-      const container = testRender(h(Counter));
+      const container = scratch.render(h(Counter));
       container.querySelector("button").click();
 
-      render(h(null), container);
+      scratch.render(h(null));
       await delay(0);
 
       assert.equal(container.innerHTML, "");
@@ -163,10 +156,10 @@ describe("hooks", () => {
       };
       const Parent = () => h(Counter);
 
-      const container = testRender(h(Parent));
+      const container = scratch.render(h(Parent));
       container.querySelector("button").click();
 
-      render(h(null), container);
+      scratch.render(h(null));
       await delay(0);
 
       assert.equal(container.innerHTML, "");
@@ -214,7 +207,7 @@ describe("hooks", () => {
         const [state, dispatch] = useReducer((state) => state, initialState);
         return h("div", {}, state);
       };
-      const container = testRender(h(Widget));
+      const container = scratch.render(h(Widget));
       assert.equal(container.innerHTML, "<div>Test</div>");
     });
 
@@ -228,12 +221,12 @@ describe("hooks", () => {
         );
         return h("div", {}, state);
       };
-      const container = testRender(h(Widget));
+      const container = scratch.render(h(Widget));
       assert.equal(container.innerHTML, "<div>64</div>");
     });
 
     it("updates state when action is dispatched", async () => {
-      const container = testRender(h(Counter));
+      const container = scratch.render(h(Counter));
       const outputEl = container.querySelector("p");
       const upButton = container.querySelector("button[testid=up]");
       const downButton = container.querySelector("button[testid=down]");
@@ -263,7 +256,7 @@ describe("hooks", () => {
     });
 
     it("does not re-render if state did not change", async () => {
-      const container = testRender(h(Counter));
+      const container = scratch.render(h(Counter));
       const noopButton = container.querySelector("button[testid=noop]");
 
       assert.equal(renderCount, 1);
@@ -281,9 +274,9 @@ describe("hooks", () => {
         const value = useRef(++counter);
         return h("div", {}, value.current);
       };
-      const container = testRender(h(Widget));
-      render(h(Widget), container);
-      render(h(Widget), container);
+      const container = scratch.render(h(Widget));
+      scratch.render(h(Widget));
+      scratch.render(h(Widget));
       assert.equal(container.innerHTML, "<div>1</div>");
     });
   });
@@ -306,12 +299,12 @@ describe("hooks", () => {
           return "Hello world";
         };
 
-        const container = testRender(h(Widget));
+        const container = scratch.render(h(Widget));
         assert.equal(effectCount, 0);
         await delay(0);
         assert.equal(effectCount, 1);
 
-        render(h(Widget), container);
+        scratch.render(h(Widget));
         assert.equal(effectCount, 1);
         await delay(0);
         assert.equal(effectCount, 2);
@@ -325,12 +318,12 @@ describe("hooks", () => {
           return "Hello world";
         };
 
-        const container = testRender(h(Widget));
+        const container = scratch.render(h(Widget));
         assert.equal(effectCount, 0);
         await delay(0);
         assert.equal(effectCount, 1);
 
-        render(h(Widget), container);
+        scratch.render(h(Widget));
         assert.equal(effectCount, 1);
         await delay(0);
         assert.equal(effectCount, 1);
@@ -344,19 +337,19 @@ describe("hooks", () => {
           return "Hello world";
         };
 
-        const container = testRender(h(Widget, { tag: 1 }));
+        const container = scratch.render(h(Widget, { tag: 1 }));
         assert.equal(effectCount, 0);
         await delay(0);
         assert.equal(effectCount, 1);
 
         // Re-render without changing effect dependencies.
-        render(h(Widget, { tag: 1 }), container);
+        scratch.render(h(Widget, { tag: 1 }));
         assert.equal(effectCount, 1);
         await delay(0);
         assert.equal(effectCount, 1);
 
         // Re-render with a change to effect dependencies.
-        render(h(Widget, { tag: 2 }), container);
+        scratch.render(h(Widget, { tag: 2 }));
         assert.equal(effectCount, 1);
         await delay(0);
         assert.equal(effectCount, 2);
@@ -375,11 +368,11 @@ describe("hooks", () => {
           return "Hello world";
         };
 
-        const container = testRender(h(Widget));
+        const container = scratch.render(h(Widget));
         await delay(0);
         assert.deepEqual(items, [1]);
 
-        render(h(null), container);
+        scratch.render(h(null));
         assert.deepEqual(items, []);
       });
 
@@ -396,10 +389,10 @@ describe("hooks", () => {
           return "Hello world";
         };
 
-        const container = testRender(h(Widget));
+        const container = scratch.render(h(Widget));
         await delay(0);
 
-        render(h(Widget), container);
+        scratch.render(h(Widget));
         await delay(0);
 
         assert.equal(effectCount, 2);
@@ -419,14 +412,14 @@ describe("hooks", () => {
         return h("div", {}, squared);
       };
 
-      const container = testRender(h(Widget, { value: 2 }));
+      const container = scratch.render(h(Widget, { value: 2 }));
       assert.equal(container.innerHTML, "<div>4</div>");
 
-      render(h(Widget, { value: 2 }), container);
+      scratch.render(h(Widget, { value: 2 }));
       assert.equal(calcCount, 1);
       assert.equal(container.innerHTML, "<div>4</div>");
 
-      render(h(Widget, { value: 4 }), container);
+      scratch.render(h(Widget, { value: 4 }));
       assert.equal(calcCount, 2);
       assert.equal(container.innerHTML, "<div>16</div>");
     });
@@ -441,14 +434,14 @@ describe("hooks", () => {
         return "Hello";
       };
 
-      const container = testRender(h(Widget, { power: 2 }));
+      const container = scratch.render(h(Widget, { power: 2 }));
       const initialCallback = callback;
       assert.equal(callback(4), 16);
 
-      render(h(Widget, { power: 2 }), container);
+      scratch.render(h(Widget, { power: 2 }));
       assert.equal(callback, initialCallback);
 
-      render(h(Widget, { power: 3 }), container);
+      scratch.render(h(Widget, { power: 3 }));
       assert.notEqual(callback, initialCallback);
       assert.equal(callback(4), 64);
     });
