@@ -3,10 +3,13 @@ import sinon from "sinon";
 const { assert } = chai;
 
 import {
+  ErrorBoundary,
   createElement as h,
   render,
   unmountComponentAtNode,
+  useState,
 } from "../build/index.js";
+import { act } from "../build/test-utils.js";
 
 import { createScratchpad } from "./utils/scratchpad.js";
 
@@ -606,6 +609,137 @@ describe("rendering", () => {
     it("returns `false` no component is mounted in node", () => {
       const container = scratch.document.createElement("div");
       assert.equal(unmountComponentAtNode(container), false);
+    });
+  });
+
+  describe("error handling during render", () => {
+    const BrokenChild = ({ id = "child" }) => {
+      throw new Error(`Error in ${id}`);
+    };
+
+    it("renders nothing if an error occurs during render", () => {
+      const App = () => {
+        return h("ul", {}, h(BrokenChild));
+      };
+
+      assert.throws(() => {
+        scratch.render(h(App));
+      }, "Error in child");
+
+      assert.equal(scratch.container.innerHTML, "");
+    });
+
+    it("only reports the first error in a render", () => {
+      const App = () => {
+        return h(
+          "ul",
+          {},
+          h(BrokenChild, { id: "child-a" }),
+          h(BrokenChild, { id: "child-b" })
+        );
+      };
+
+      assert.throws(() => {
+        scratch.render(h(App));
+      }, "Error in child-a");
+
+      assert.equal(scratch.container.innerHTML, "");
+    });
+
+    it("invokes the nearest error boundary", () => {
+      let handledError;
+      const App = () => {
+        const [error, setError] = useState(null);
+        const handler = (err) => {
+          handledError = err;
+          setError(err);
+        };
+
+        return error
+          ? `Something went wrong: ${error.message}`
+          : h(ErrorBoundary, { handler }, h(BrokenChild));
+      };
+
+      act(() => {
+        scratch.render(h(App));
+      });
+
+      assert.instanceOf(handledError, Error);
+      assert.equal(
+        scratch.container.innerHTML,
+        "Something went wrong: Error in child"
+      );
+    });
+
+    it("handles an error during the error boundary", () => {
+      const BrokenBoundary = () => {
+        const handler = () => {
+          throw new Error("Error from BrokenBoundary");
+        };
+        return h(ErrorBoundary, { handler }, h(BrokenChild));
+      };
+
+      const App = () => {
+        const [error, setError] = useState(null);
+        return error
+          ? `Something went wrong: ${error.message}`
+          : h(ErrorBoundary, { handler: setError }, h(BrokenBoundary));
+      };
+
+      act(() => {
+        scratch.render(h(App));
+      });
+
+      assert.equal(
+        scratch.container.innerHTML,
+        "Something went wrong: Error from BrokenBoundary"
+      );
+    });
+
+    it("renders other subtrees when one subtree has an error", () => {
+      const WorkingChild = () => h("div", {}, "This part is OK");
+      const Boundary = () => {
+        const [error, setError] = useState(null);
+        return error
+          ? h("div", {}, "Subtree with error")
+          : h(ErrorBoundary, { handler: setError }, h(BrokenChild));
+      };
+      const App = () => {
+        return h("div", {}, h(Boundary), h(WorkingChild));
+      };
+
+      act(() => {
+        scratch.render(h(App));
+      });
+
+      assert.equal(
+        scratch.container.innerHTML,
+        "<div><div>Subtree with error</div><div>This part is OK</div></div>"
+      );
+    });
+
+    it("invokes only the nearest error boundary when there are multiple in a tree", () => {
+      const log = [];
+
+      const Child = () => {
+        const handler = (err) => {
+          log.push(`Child boundary: ${err.message}`);
+        };
+        return h(ErrorBoundary, { handler }, h(BrokenChild));
+      };
+
+      const App = () => {
+        const handler = (err) => {
+          log.push(`App boundary: ${err.message}`);
+        };
+        return h(ErrorBoundary, { handler }, h(Child));
+      };
+
+      act(() => {
+        scratch.render(h(App));
+      });
+
+      assert.deepEqual(log, ["Child boundary: Error in child"]);
     });
   });
 });

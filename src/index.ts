@@ -1,5 +1,5 @@
 export { createElement, isValidElement, jsx } from "./jsx.js";
-export { render, unmountComponentAtNode } from "./render.js";
+export { ErrorBoundary, render, unmountComponentAtNode } from "./render.js";
 export { createContext } from "./context.js";
 export {
   useCallback,

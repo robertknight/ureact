@@ -1,4 +1,4 @@
-import { VNode, VNodeChildren, isValidElement } from "./jsx.js";
+import { Props, VNode, VNodeChildren, isValidElement } from "./jsx.js";
 import { ContextProvider } from "./context.js";
 import { EffectTiming, HookState, setHookState } from "./hooks.js";
 import { diffElementProps } from "./dom-props.js";
@@ -78,6 +78,22 @@ function vnodeKey(vnode: any) {
   return isValidElement(vnode) ? vnode.key : null;
 }
 
+interface ErrorBoundaryProps extends Props {
+  handler: (e: Error) => void;
+}
+
+interface ErrorBoundaryVNode extends VNode {
+  props: ErrorBoundaryProps;
+}
+
+export function ErrorBoundary({ children }: ErrorBoundaryProps) {
+  return children;
+}
+
+function isErrorBoundary(vnode: VNodeChild): vnode is ErrorBoundaryVNode {
+  return isValidElement(vnode) && vnode.type === ErrorBoundary;
+}
+
 /**
  * Return the top-level DOM nodes rendered by a component.
  */
@@ -100,6 +116,11 @@ const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
 const activeRoots = new Map<Element, Root>();
 
+interface RenderError {
+  error: Error;
+  handled: boolean;
+}
+
 /**
  * Render tree root.
  *
@@ -115,6 +136,7 @@ class Root {
   private _pendingEffects: Set<Component>;
   private _pendingLayoutEffects: Set<Component>;
   private _pendingUpdate: Set<Component>;
+  private _currentError: RenderError | null;
 
   /**
    * Create a root which renders into `container`.
@@ -127,6 +149,7 @@ class Root {
     this._pendingEffects = new Set();
     this._pendingLayoutEffects = new Set();
     this._pendingUpdate = new Set();
+    this._currentError = null;
 
     activeRoots.set(container, this);
   }
@@ -146,6 +169,7 @@ class Root {
       vnode,
       this.container
     );
+    this._handlePendingError();
   }
 
   /**
@@ -391,12 +415,46 @@ class Root {
       });
     }
     this._pendingUpdate.delete(component);
+
     setHookState(component.hooks);
-
-    const result = (vnode.type as Function).call(null, vnode.props);
-
+    let result;
+    try {
+      result = (vnode.type as Function).call(null, vnode.props);
+    } catch (err) {
+      result = null;
+      this._invokeErrorHandler(component, err);
+    }
     setHookState(null);
+
     return result;
+  }
+
+  _invokeErrorHandler(context: Component, error: Error) {
+    if (this._currentError) {
+      // Only the first error in any render is reported.
+      return;
+    }
+
+    let handled = false;
+    let errorHandler = context as Component | null;
+    while (errorHandler !== null) {
+      try {
+        const vnode = errorHandler.vnode;
+        if (isErrorBoundary(vnode)) {
+          vnode.props.handler(error);
+          handled = true;
+          break;
+        }
+      } catch (boundaryError) {
+        error = boundaryError;
+      }
+      errorHandler = errorHandler.parent;
+    }
+
+    this._currentError = {
+      error,
+      handled,
+    };
   }
 
   _scheduleEffects(component: Component, when: EffectTiming) {
@@ -466,6 +524,24 @@ class Root {
         component.vnode,
         (getParentDom(component) as Element) || this.container
       );
+    }
+
+    this._handlePendingError();
+  }
+
+  /** Finish handling any pending error at the end of a render. */
+  _handlePendingError() {
+    if (!this._currentError) {
+      return;
+    }
+    const lastError = this._currentError;
+    this._currentError = null;
+
+    if (!lastError.handled) {
+      // Following React, unmount the entire tree if an error is uncaught:
+      // https://reactjs.org/docs/error-boundaries.html#new-behavior-for-uncaught-errors
+      this.render(null);
+      throw lastError.error;
     }
   }
 
