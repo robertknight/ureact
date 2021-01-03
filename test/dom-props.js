@@ -55,13 +55,13 @@ describe("DOM properties, attribute & event listeners", () => {
 
     it("adds bubble-phase event listener if prop does not have a `Capture` suffix", () => {
       const handler = sinon.spy((e) => {
-        assert.equal(e.eventPhase, 2 /* Event.AT_TARGET */);
+        assert.equal(e.eventPhase, 3 /* Event.BUBBLING_PHASE */);
       });
       const container = scratch.render(
-        h("div", {}, h("button", { onClick: handler }, "Click me"))
+        h("div", { onClick: handler }, h("button", {}, "Click me"))
       );
       const button = container.querySelector("button");
-      const event = new scratch.window.Event("click");
+      const event = new scratch.window.Event("click", { bubbles: true });
 
       button.dispatchEvent(event);
 
@@ -73,10 +73,10 @@ describe("DOM properties, attribute & event listeners", () => {
         assert.equal(e.eventPhase, 1 /* Event.CAPTURING_PHASE */);
       });
       const container = scratch.render(
-        h("div", {}, h("button", { onClickCapture: handler }, "Click me"))
+        h("div", { onClickCapture: handler }, h("button", {}, "Click me"))
       );
       const button = container.querySelector("button");
-      const event = new scratch.window.Event("click");
+      const event = new scratch.window.Event("click", { bubbles: true });
 
       button.dispatchEvent(event);
 
