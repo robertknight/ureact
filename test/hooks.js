@@ -95,15 +95,60 @@ describe("hooks", () => {
       const container = scratch.render(h(Counter));
       assert.equal(container.innerHTML, "<button>0</button>");
 
+      // Fire an event that triggers a state update. This should trigger a
+      // component update, but only after a delay.
       container.querySelector("button").click();
       assert.equal(container.innerHTML, "<button>0</button>");
       await delay(0);
       assert.equal(container.innerHTML, "<button>1</button>");
 
+      // Trigger another event. This should trigger another state update, but
+      // only after a delay.
       container.querySelector("button").click();
       assert.equal(container.innerHTML, "<button>1</button>");
       await delay(0);
       assert.equal(container.innerHTML, "<button>2</button>");
+    });
+
+    it("re-renders component only once after a state update", async () => {
+      const Counter = ({ renderCount }) => {
+        ++renderCount.value;
+        const [count, setCount] = useState(0);
+        const increment = () => setCount(count + 1);
+        return h("button", { onClick: increment }, count);
+      };
+
+      const countA = { value: 0 };
+      const countB = { value: 0 };
+
+      const container = scratch.render(
+        h(
+          "div",
+          {},
+          h(Counter, { renderCount: countA }),
+          h(Counter, { renderCount: countB })
+        )
+      );
+
+      // Trigger an update in the first `Counter` component.
+      container.querySelectorAll("button")[0].click();
+      await delay(0);
+      assert.equal(countA.value, 2);
+      assert.equal(countB.value, 1);
+
+      // Trigger an update in the second `Counter` component.
+      //
+      // Only the second component should re-render, verifying that the first
+      // component is no longer in the "pending update" set.
+      container.querySelectorAll("button")[1].click();
+      await delay(0);
+
+      assert.equal(
+        container.innerHTML,
+        "<div><button>1</button><button>1</button></div>"
+      );
+      assert.equal(countA.value, 2);
+      assert.equal(countB.value, 2);
     });
 
     it("supports functional state updates", async () => {
