@@ -32,6 +32,9 @@ interface Component {
   hooks: HookState | null;
 
   contextProvider: ContextProvider<any> | null;
+
+  /** Whether this component is an `<svg>` DOM component or a child of one. */
+  svg: boolean;
 }
 
 // Properties added by existing DOM elements into which a UReact component tree
@@ -105,6 +108,8 @@ function isAncestorOf(ancestor: Component, c: Component | null) {
   }
   return c === ancestor;
 }
+
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
 const activeRoots = new Map<Element, Root>();
 
@@ -336,6 +341,7 @@ class Root {
       dom: null,
       hooks: null,
       contextProvider: null,
+      svg: parent ? parent.svg : false,
     };
 
     if (isEmptyVNode(vnode)) {
@@ -345,7 +351,10 @@ class Root {
     } else if (!isValidElement(vnode)) {
       throw new Error("Object is not a valid element");
     } else if (typeof vnode.type === "string") {
-      const element = this._document.createElement(vnode.type);
+      newComponent.svg = newComponent.svg || vnode.type === "svg";
+      const element = newComponent.svg
+        ? this._document.createElementNS(SVG_NAMESPACE, vnode.type)
+        : this._document.createElement(vnode.type);
       diffElementProps(element, {}, vnode.props);
       if (vnode.ref) {
         vnode.ref.current = element;

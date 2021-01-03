@@ -165,6 +165,45 @@ describe("rendering", () => {
     });
   });
 
+  describe("SVG element rendering", () => {
+    it("renders SVG elements", () => {
+      const container = scratch.render(
+        h(
+          "svg",
+          { width: 400, height: 100 },
+          h("rect", {
+            width: 300,
+            height: 100,
+            style: {
+              fill: "rgb(0,0,255)",
+            },
+          })
+        )
+      );
+
+      assert.equal(
+        container.innerHTML,
+        '<svg width="400" height="100"><rect width="300" height="100" style="fill: rgb(0,0,255);"></rect></svg>'
+      );
+
+      assert.instanceOf(container.firstChild, scratch.window.SVGSVGElement);
+      assert.instanceOf(
+        container.firstChild.firstChild,
+        scratch.window.SVGElement
+      );
+    });
+
+    it("renders SVG elements with non-DOM parent", () => {
+      const Rect = () => h("rect");
+      const container = scratch.render(h("svg", {}, h(Rect)));
+      assert.equal(container.innerHTML, "<svg><rect></rect></svg>");
+      assert.instanceOf(
+        container.querySelector("rect"),
+        scratch.window.SVGElement
+      );
+    });
+  });
+
   describe("DOM element re-rendering", () => {
     it("updates child text nodes", () => {
       const container = scratch.render(h("div", {}, "Hello ", "world"));
