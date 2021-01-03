@@ -66,6 +66,20 @@ describe("DOM properties, attribute & event listeners", () => {
       const css = container.firstChild.style.cssText;
       assert.equal(css, "background-color: white; font-size: 12pt;");
     });
+
+    it("sets custom HTML", () => {
+      const container = scratch.render(
+        h("div", {
+          dangerouslySetInnerHTML: {
+            __html: "<span>Custom markup</span>",
+          },
+        })
+      );
+      assert.equal(
+        container.innerHTML,
+        "<div><span>Custom markup</span></div>"
+      );
+    });
   });
 
   describe("re-rendering", () => {
@@ -233,6 +247,49 @@ describe("DOM properties, attribute & event listeners", () => {
       );
 
       assert.equal(style.cssText, "font-weight: bold;");
+    });
+
+    it("updates custom HTML", () => {
+      const container = scratch.render(
+        h("div", {
+          dangerouslySetInnerHTML: {
+            __html: "<span>Custom markup</span>",
+          },
+        })
+      );
+      scratch.render(
+        h("div", {
+          dangerouslySetInnerHTML: {
+            __html: "<span>New custom markup</span>",
+          },
+        })
+      );
+      assert.equal(
+        container.innerHTML,
+        "<div><span>New custom markup</span></div>"
+      );
+    });
+
+    it("does not update custom HTML if HTML string is unchanged", () => {
+      const container = scratch.render(
+        h("div", {
+          dangerouslySetInnerHTML: {
+            __html: "<span>Custom markup</span>",
+          },
+        })
+      );
+
+      container.firstChild.innerHTML = "Manually modified";
+
+      scratch.render(
+        h("div", {
+          dangerouslySetInnerHTML: {
+            __html: "<span>Custom markup</span>",
+          },
+        })
+      );
+
+      assert.equal(container.innerHTML, "<div>Manually modified</div>");
     });
   });
 

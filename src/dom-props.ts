@@ -80,16 +80,14 @@ function setProperty(
 
   if (prop === "style") {
     updateInlineStyles(node as HTMLElement, oldValue || {}, newValue);
-    return;
-  }
-
-  if (isEventListener(prop)) {
+  } else if (isEventListener(prop)) {
     setEventListener(node, prop, newValue);
-    return;
-  }
-
-  if (prop in node) {
+  } else if (prop in node) {
     (node as any)[prop] = newValue;
+  } else if (prop === "dangerouslySetInnerHTML") {
+    if (oldValue?.__html !== newValue.__html) {
+      node.innerHTML = newValue.__html;
+    }
   } else {
     node.setAttribute(prop, newValue);
   }
