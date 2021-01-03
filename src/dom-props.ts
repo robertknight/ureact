@@ -1,4 +1,5 @@
 import { Props } from "./jsx.js";
+import { shallowEqual } from "./diff-utils.js";
 
 // Properties added to DOM elements rendered by UReact.
 interface UReactElement extends Element {
@@ -49,20 +50,44 @@ function unsetProperty(node: Element, prop: string) {
   }
 }
 
+function updateInlineStyles(
+  node: HTMLElement,
+  oldValue: CSSStyleDeclaration,
+  newValue: CSSStyleDeclaration
+) {
+  if (shallowEqual(oldValue, newValue)) {
+    return;
+  }
+  node.style.cssText = "";
+  for (let key in newValue) {
+    node.style[key] = newValue[key];
+  }
+}
+
 /**
  * Update the DOM property, attribute or event listener corresponding to
  * `prop`.
  */
-function setProperty(node: Element, prop: string, value: any) {
+function setProperty(
+  node: Element,
+  prop: string,
+  oldValue: any,
+  newValue: any
+) {
+  if (prop === "style") {
+    updateInlineStyles(node as HTMLElement, oldValue || {}, newValue);
+    return;
+  }
+
   if (isEventListener(prop)) {
-    setEventListener(node, prop, value);
+    setEventListener(node, prop, newValue);
     return;
   }
 
   if (prop in node) {
-    (node as any)[prop] = value;
+    (node as any)[prop] = newValue;
   } else {
-    node.setAttribute(prop, value);
+    node.setAttribute(prop, newValue);
   }
 }
 
@@ -83,7 +108,7 @@ export function diffElementProps(
 
   for (let prop in newProps) {
     if (prop !== "children") {
-      setProperty(node, prop, newProps[prop]);
+      setProperty(node, prop, oldProps[prop], newProps[prop]);
     }
   }
 }

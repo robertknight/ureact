@@ -52,6 +52,20 @@ describe("DOM properties, attribute & event listeners", () => {
         sinon.assert.calledWith(handler, event);
       });
     });
+
+    it("sets inline styles", () => {
+      const container = scratch.render(
+        h("div", {
+          style: {
+            backgroundColor: "white",
+            fontSize: "12pt",
+          },
+        })
+      );
+
+      const css = container.firstChild.style.cssText;
+      assert.equal(css, "background-color: white; font-size: 12pt;");
+    });
   });
 
   describe("re-rendering", () => {
@@ -135,6 +149,76 @@ describe("DOM properties, attribute & event listeners", () => {
       container.firstChild.click();
 
       sinon.assert.notCalled(callback);
+    });
+
+    it("updates inline styles if `style` prop changed", () => {
+      const container = scratch.render(
+        h("div", {
+          style: {
+            backgroundColor: "white",
+            fontSize: "12pt",
+          },
+        })
+      );
+      const style = container.firstChild.style;
+
+      scratch.render(
+        h("div", {
+          style: {
+            // fontSize removed.
+            backgroundColor: "green", // Updated
+            fontWeight: "bold", // Added
+          },
+        })
+      );
+
+      const css = container.firstChild.style.cssText;
+      assert.equal(css, "background-color: green; font-weight: bold;");
+    });
+
+    it("removes inline styles if `style` prop is removed", () => {
+      const container = scratch.render(
+        h("div", {
+          style: {
+            backgroundColor: "white",
+            fontSize: "12pt",
+          },
+        })
+      );
+      const style = container.firstChild.style;
+      assert.notEqual(style.cssText, "");
+
+      scratch.render(h("div"));
+      assert.equal(style.cssText, "");
+    });
+
+    it("does not update inline styles if `style` prop did not change", () => {
+      const container = scratch.render(
+        h("div", {
+          style: {
+            backgroundColor: "white",
+            fontSize: "12pt",
+          },
+        })
+      );
+      const style = container.firstChild.style;
+
+      // Manually change the styles, do we can tell if the next render modifies
+      // them.
+      style.cssText = "font-weight: bold;";
+
+      // Re-render with the same styles as the previous render. The inline styles
+      // should not be updated.
+      scratch.render(
+        h("div", {
+          style: {
+            backgroundColor: "white",
+            fontSize: "12pt",
+          },
+        })
+      );
+
+      assert.equal(style.cssText, "font-weight: bold;");
     });
   });
 

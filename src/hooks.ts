@@ -65,7 +65,7 @@ export interface Component {
   registerContext<T>(provider: ContextProvider<T>): void;
 }
 
-function shallowEqual(a: any[], b: any[]) {
+function depsEqual(a: any[], b: any[]) {
   return a.length === b.length && a.every((v, i) => b[i] === v);
 }
 
@@ -134,7 +134,7 @@ export class HookState {
       };
       this._hooks.push(hook);
       this._component.scheduleEffects(when);
-    } else if (!deps || !hook.deps || !shallowEqual(hook.deps, deps)) {
+    } else if (!deps || !hook.deps || !depsEqual(hook.deps, deps)) {
       if (hook.cleanup) {
         hook.cleanup();
         hook.cleanup = null;
@@ -157,7 +157,7 @@ export class HookState {
         deps,
       };
       this._hooks.push(hook);
-    } else if (!shallowEqual(hook.deps, deps)) {
+    } else if (!depsEqual(hook.deps, deps)) {
       hook.result = callback();
       hook.deps = deps;
     }
@@ -173,7 +173,7 @@ export class HookState {
         deps,
       };
       this._hooks.push(hook);
-    } else if (!shallowEqual(hook.deps, deps)) {
+    } else if (!depsEqual(hook.deps, deps)) {
       hook.result = callback;
       hook.deps = deps;
     }
