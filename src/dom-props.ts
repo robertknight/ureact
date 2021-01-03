@@ -17,20 +17,27 @@ function setEventListener(el: Element, prop: string, value: (e: Event) => any) {
   const ureactEl = el as UReactElement;
   const listeners =
     ureactEl._ureactListeners || (ureactEl._ureactListeners = {});
+  const useCapture = prop.endsWith("Capture");
 
-  let eventName = prop.slice(2);
+  // Remove "on" prefix and "Capture" suffix to get the event name for use
+  // with `addEventListener`.
+  let eventName = prop.slice(2, useCapture ? -7 : undefined);
 
   // Use a heuristic to test if this is a native DOM event, in which case
   // it uses a lower-case name.
-  const nameLower = prop.toLowerCase();
-  if (nameLower in el) {
-    eventName = nameLower.slice(2);
+  const nameLower = eventName.toLowerCase();
+  if ("on" + nameLower in el) {
+    eventName = nameLower;
   }
 
-  if (!listeners[eventName]) {
-    el.addEventListener(eventName, (event) => listeners[eventName]?.(event));
+  if (!listeners[prop]) {
+    el.addEventListener(
+      eventName,
+      (event) => listeners[prop]?.(event),
+      useCapture
+    );
   }
-  listeners[eventName] = value;
+  listeners[prop] = value;
 }
 
 function unsetProperty(el: Element, prop: string) {

@@ -53,6 +53,36 @@ describe("DOM properties, attribute & event listeners", () => {
       });
     });
 
+    it("adds bubble-phase event listener if prop does not have a `Capture` suffix", () => {
+      const handler = sinon.spy((e) => {
+        assert.equal(e.eventPhase, 2 /* Event.AT_TARGET */);
+      });
+      const container = scratch.render(
+        h("div", {}, h("button", { onClick: handler }, "Click me"))
+      );
+      const button = container.querySelector("button");
+      const event = new scratch.window.Event("click");
+
+      button.dispatchEvent(event);
+
+      sinon.assert.calledWith(handler, event);
+    });
+
+    it("adds capture-phase event listener if prop has `Capture` suffix", () => {
+      const handler = sinon.spy((e) => {
+        assert.equal(e.eventPhase, 1 /* Event.CAPTURING_PHASE */);
+      });
+      const container = scratch.render(
+        h("div", {}, h("button", { onClickCapture: handler }, "Click me"))
+      );
+      const button = container.querySelector("button");
+      const event = new scratch.window.Event("click");
+
+      button.dispatchEvent(event);
+
+      sinon.assert.calledWith(handler, event);
+    });
+
     it("sets inline styles", () => {
       const container = scratch.render(
         h("div", {
@@ -177,6 +207,20 @@ describe("DOM properties, attribute & event listeners", () => {
       container.firstChild.click();
 
       sinon.assert.notCalled(callback);
+    });
+
+    it("removes capture-phase event listeners that are no longer present", () => {
+      const handler = sinon.stub();
+      const container = scratch.render(
+        h("div", {}, h("button", { onClickCapture: handler }, "Click me"))
+      );
+      const button = container.querySelector("button");
+
+      scratch.render(h("div", {}, h("button", {}, "Click me")));
+      const event = new scratch.window.Event("click");
+      button.dispatchEvent(event);
+
+      sinon.assert.notCalled(handler);
     });
 
     it("updates inline styles if `style` prop changed", () => {
