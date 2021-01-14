@@ -3,10 +3,11 @@ import * as sinon from "sinon";
 const { assert } = chai;
 
 import {
+  createContext,
   createElement as h,
   render,
   useCallback,
-  // `useContext` is not here because it is tested separately.
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -398,6 +399,11 @@ describe("hooks", () => {
         assert.equal(effectCount, 1);
         await delay(0);
         assert.equal(effectCount, 2);
+
+        // Re-render again without changing dependencies.
+        scratch.render(h(Widget, { tag: 2 }));
+        await delay(0);
+        assert.equal(effectCount, 2);
       });
 
       it("runs cleanup when component is unmounted", async () => {
@@ -489,6 +495,44 @@ describe("hooks", () => {
       scratch.render(h(Widget, { power: 3 }));
       assert.notEqual(callback, initialCallback);
       assert.equal(callback(4), 64);
+    });
+  });
+
+  describe("hook ordering", () => {
+    it("throws an error if hooks are called in different order across renders", () => {
+      const Widget = ({ effectFirst }) => {
+        if (effectFirst) {
+          useEffect(() => {});
+        } else {
+          useState(0);
+        }
+      };
+
+      scratch.render(h(Widget, { effectFirst: true }));
+      assert.throws(() => {
+        scratch.render(h(Widget, { effectFirst: false }));
+      }, "Hook type mismatch. Hooks must be called in same order on each render.");
+    });
+
+    it("does not throw an error if all hook types are used in same order", () => {
+      const Widget = () => {
+        useEffect(() => {});
+        useState(0);
+        useLayoutEffect(() => {});
+        useContext(ContextType);
+        useMemo(() => 0, []);
+        useRef(null);
+        useCallback(() => {}, []);
+      };
+
+      const ContextType = createContext(null);
+
+      const App = () => {
+        return h(ContextType.Provider, { value: 42 }, h(Widget));
+      };
+
+      scratch.render(h(App));
+      scratch.render(h(App));
     });
   });
 });

@@ -80,9 +80,15 @@ export class HookState {
     this._component = component;
   }
 
-  _nextHook<T extends Hook>() {
+  _nextHook<T extends Hook>(type: string) {
     ++this._index;
-    return this._hooks[this._index] as T | undefined;
+    const hook = this._hooks[this._index] as T | undefined;
+    if (hook && hook.type !== type) {
+      throw new Error(
+        "Hook type mismatch. Hooks must be called in same order on each render."
+      );
+    }
+    return hook;
   }
 
   resetIndex() {
@@ -123,7 +129,7 @@ export class HookState {
     deps?: any[],
     when: EffectTiming = EffectTiming.afterRender
   ) {
-    let hook = this._nextHook<EffectHook>();
+    let hook = this._nextHook<EffectHook>("effect");
     if (!hook) {
       hook = {
         type: "effect",
@@ -140,6 +146,7 @@ export class HookState {
         hook.cleanup = null;
       }
       hook.pendingEffect = effect;
+      hook.deps = deps ?? null;
       this._component.scheduleEffects(when);
     }
   }
@@ -149,7 +156,7 @@ export class HookState {
   }
 
   useMemo<T>(callback: () => T, deps: any[]) {
-    let hook = this._nextHook<MemoHook<T>>();
+    let hook = this._nextHook<MemoHook<T>>("memo");
     if (!hook) {
       hook = {
         type: "memo",
@@ -165,7 +172,7 @@ export class HookState {
   }
 
   useCallback<F extends Function>(callback: F, deps: any[]) {
-    let hook = this._nextHook<MemoHook<F>>();
+    let hook = this._nextHook<MemoHook<F>>("memo");
     if (!hook) {
       hook = {
         type: "memo",
@@ -181,19 +188,20 @@ export class HookState {
   }
 
   useContext<T>(type: any): T {
-    let hook = this._nextHook<ContextHook<T>>();
+    let hook = this._nextHook<ContextHook<T>>("context");
     if (!hook) {
       const provider = this._component.getContext<T>(type);
       const listener = () => this._component.scheduleUpdate();
       const unsubscribe = () => provider.unsubscribe(listener);
       hook = { type: "context", provider, unsubscribe };
       provider.subscribe(listener);
+      this._hooks.push(hook);
     }
     return hook.provider.value;
   }
 
   useState<S>(initialState: S | (() => S)) {
-    let hook = this._nextHook<StateHook<S>>();
+    let hook = this._nextHook<StateHook<S>>("state");
     if (!hook) {
       const setter = (newState: S | ((current: S) => S)) => {
         hook!.value =
@@ -217,7 +225,7 @@ export class HookState {
     initialArg: S,
     init?: (a: typeof initialArg) => S
   ) {
-    let hook = this._nextHook<StateHook<S>>();
+    let hook = this._nextHook<StateHook<S>>("state");
     if (!hook) {
       const dispatch = (action: any) => {
         const newState = reducer(hook!.value, action);
@@ -235,7 +243,7 @@ export class HookState {
   }
 
   useRef<T>(initialValue: T) {
-    let hook = this._nextHook<RefHook<T>>();
+    let hook = this._nextHook<RefHook<T>>("ref");
     if (!hook) {
       hook = { type: "ref", current: initialValue };
       this._hooks.push(hook);
