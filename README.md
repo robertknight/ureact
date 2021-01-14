@@ -16,26 +16,97 @@ ureact supports the core, modern React APIs for use in the browser. This include
 
 - [Function components](https://reactjs.org/docs/components-and-props.html)
 - The default and new (React 17+) [methods of transforming JSX](https://reactjs.org/blog/2020/09/22/introducing-the-new-jsx-transform.html)
-- [Hooks](https://reactjs.org/docs/hooks-intro.html)
-- Important utilities such as `Fragment` and `memo`
-- The `act` test utility
+- [Hooks](https://reactjs.org/docs/hooks-intro.html) for adding state and effects
+  to components.
+- Important utilities such as [`Fragment`](https://reactjs.org/docs/fragments.html) and [`memo`](https://reactjs.org/docs/react-api.html#reactmemo)
 - The modern [Context](https://reactjs.org/docs/context.html) API
+- The [`act`](https://reactjs.org/docs/testing-recipes.html#act) test utility
 
 It intentionally does not support:
 
 - Class components with lifecycle methods
 - The [concurrent mode](https://reactjs.org/docs/concurrent-mode-intro.html) APIs
   such as `Suspense`
-- The legacy context API
+- The [legacy context API](https://reactjs.org/docs/legacy-context.html#gatsby-focus-wrapper)
 - [Synthetic events](https://reactjs.org/docs/events.html). Event handlers get
   native DOM events instead
 - Testing APIs other than `act`
-- Rendering to non-DOM targets
+- Rendering to non-DOM targets. There is no equivalent of React Native or
+  React ART for example.
+
+There is currently no server-side rendering / render-to-string support. This
+might change in future.
 
 ## Supported browsers
 
-ureact is intended to work on modern (think post-2017) browsers. It does not support
+ureact is intended to work on modern (~2017 and later) browsers. It does not support
 IE 11 or similar vintage browsers. It also works with JSDOM in a test environment.
+
+## API differences from React
+
+Aside from React APIs which ureact intentionally does not support, there are
+some other API differences:
+
+- ureact does not have a default export. In React functions can be imported using
+  either:
+
+  ```js
+  import React from "react";
+
+  React.createElement(...)
+  ```
+
+  Or:
+
+  ```js
+  import { createElement } from "react";
+  createElement(...)
+  ```
+
+  The second style is preferred in modern React code and is the only style
+  supported by ureact.
+
+  If using a build tool such as Babel or TypeScript, it must be configured
+  to translate JSX into calls to `createElement` rather than `React.createElement`.
+
+- Event handlers receive native DOM events rather than synthetic events. In most
+  instances this does not require changes to event handler code since React's
+  `SyntheticEvent` has the same API as native events and mainly exists to
+  normalize historical differences across browsers.
+
+- Since class components are not supported, the API for adding [error boundaries](https://reactjs.org/docs/error-boundaries.html)
+  is different. ureact exports an `ErrorBoundary` helper component which is used
+  like so:
+
+  ```js
+  import { createElement, ErrorBoundary, useState } from "ureact";
+
+  function App() {
+    const [error, setError] = useState(null);
+
+    return error ? (
+      "Something went wrong"
+    ) : (
+      <ErrorBoundary handler={setError}>…</ErrorBoundary>
+    );
+  }
+  ```
+
+  The `ErrorBoundary` component could be implemented in React with:
+
+  ```js
+  import { Component } from "react";
+
+  export class ErrorBoundary extends Component {
+    componentDidCatch(error) {
+      this.props.handler(error);
+    }
+
+    render({ children }) {
+      return children;
+    }
+  }
+  ```
 
 ## Implementation notes
 
