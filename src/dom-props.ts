@@ -40,16 +40,20 @@ function setEventListener(el: Element, prop: string, value: (e: Event) => any) {
   listeners[prop] = value;
 }
 
-function unsetProperty(el: Element, prop: string) {
+function attrForProp(prop: string, isSvg: boolean) {
+  return isSvg && prop === "className" ? "class" : prop;
+}
+
+function unsetProperty(el: Element, isSvg: boolean, prop: string) {
   if (isEventListener(prop)) {
     const noopListener = () => {};
     setEventListener(el, prop, noopListener);
   }
 
-  if (prop in el) {
+  if (!isSvg && prop in el) {
     (el as any)[prop] = "";
   } else {
-    el.removeAttribute(prop);
+    el.removeAttribute(attrForProp(prop, isSvg));
   }
 }
 
@@ -71,7 +75,13 @@ function updateInlineStyles(
  * Update the DOM property, attribute or event listener corresponding to
  * `prop`.
  */
-function setProperty(el: Element, prop: string, oldValue: any, newValue: any) {
+function setProperty(
+  el: Element,
+  isSvg: boolean,
+  prop: string,
+  oldValue: any,
+  newValue: any
+) {
   if (Object.is(oldValue, newValue)) {
     return;
   }
@@ -80,14 +90,14 @@ function setProperty(el: Element, prop: string, oldValue: any, newValue: any) {
     updateInlineStyles(el as HTMLElement, oldValue || {}, newValue);
   } else if (isEventListener(prop)) {
     setEventListener(el, prop, newValue);
-  } else if (prop in el) {
+  } else if (!isSvg && prop in el) {
     (el as any)[prop] = newValue;
   } else if (prop === "dangerouslySetInnerHTML") {
     if (oldValue?.__html !== newValue.__html) {
       el.innerHTML = newValue.__html;
     }
   } else {
-    el.setAttribute(prop, newValue);
+    el.setAttribute(attrForProp(prop, isSvg), newValue);
   }
 }
 
@@ -100,15 +110,21 @@ export function diffElementProps(
   oldProps: Props,
   newProps: Props
 ) {
+  // We could use `el instanceof SVGElement` here, but that would not work if
+  // rendering is done in an environment where `SVGElement` is not in the global
+  // scope, or if the element comes from a different window which has its own
+  // globals.
+  const isSvg = "ownerSVGElement" in el;
+
   for (let prop in oldProps) {
     if (prop !== "children" && !(prop in newProps)) {
-      unsetProperty(el, prop);
+      unsetProperty(el, isSvg, prop);
     }
   }
 
   for (let prop in newProps) {
     if (prop !== "children") {
-      setProperty(el, prop, oldProps[prop], newProps[prop]);
+      setProperty(el, isSvg, prop, oldProps[prop], newProps[prop]);
     }
   }
 }

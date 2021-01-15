@@ -388,4 +388,22 @@ describe("DOM properties, attribute & event listeners", () => {
       }
     );
   });
+
+  describe("SVG element props", () => {
+    it("maps `className` prop to `class` attribute", () => {
+      const container = scratch.render(h("svg", { className: "test-class" }));
+      assert.equal(container.innerHTML, '<svg class="test-class"></svg>');
+    });
+
+    it("sets attributes rather than properties", () => {
+      const container = scratch.render(h("svg", { width: 10, height: 20 }));
+      assert.equal(container.innerHTML, '<svg width="10" height="20"></svg>');
+    });
+
+    it("unsets attributes when props are removed", () => {
+      const container = scratch.render(h("svg", { width: 10, height: 20 }));
+      scratch.render(h("svg", { height: 20 }));
+      assert.equal(container.innerHTML, '<svg height="20"></svg>');
+    });
+  });
 });
