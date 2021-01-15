@@ -452,6 +452,26 @@ describe("hooks", () => {
     });
   });
 
+  it("flushes layout effects if effect flush is pending", () => {
+    let resolveEffectCalled;
+    let effectCalled = new Promise(
+      (resolve) => (resolveEffectCalled = resolve)
+    );
+    let resolveLayoutEffectCalled;
+    let layoutEffectCalled = new Promise(
+      (resolve) => (resolveLayoutEffectCalled = resolve)
+    );
+
+    const Widget = () => {
+      // nb. Hook order is important to reproduce the original issue.
+      useEffect(resolveEffectCalled);
+      useLayoutEffect(resolveLayoutEffectCalled);
+    };
+    scratch.render(h(Widget));
+
+    return Promise.all([effectCalled, layoutEffectCalled]);
+  });
+
   describe("useMemo", () => {
     it("recomputes value when dependencies change", () => {
       let calcCount = 0;

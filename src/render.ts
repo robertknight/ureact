@@ -469,7 +469,7 @@ class Root {
         queueMicrotask(() => this._flushEffects());
       }
     } else {
-      const isScheduled = this._pendingEffects.size > 0;
+      const isScheduled = this._pendingLayoutEffects.size > 0;
       if (!this._pendingLayoutEffects.has(component)) {
         this._pendingLayoutEffects.add(component);
       }
