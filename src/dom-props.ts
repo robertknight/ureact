@@ -139,10 +139,6 @@ function setProperty(
   oldValue: any,
   newValue: any
 ) {
-  if (Object.is(oldValue, newValue)) {
-    return;
-  }
-
   if (prop.name === "style") {
     updateInlineStyles(el as HTMLElement, oldValue || {}, newValue);
   } else if (prop.eventName !== null) {
@@ -176,8 +172,15 @@ export function diffElementProps(
 
   for (let prop in newProps) {
     if (prop !== "children") {
+      const oldValue = oldProps[prop];
+      const newValue = newProps[prop];
+
+      if (Object.is(oldValue, newValue)) {
+        return;
+      }
+
       const meta = getPropertyMeta(el, prop);
-      setProperty(el, meta, oldProps[prop], newProps[prop]);
+      setProperty(el, meta, oldValue, newValue);
     }
   }
 }
