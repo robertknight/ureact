@@ -6,54 +6,112 @@ interface UReactElement extends Element {
   _ureactListeners?: { [event: string]: Function | null };
 }
 
-function isEventListener(prop: string) {
-  return prop.startsWith("on");
+/** Metadata about a DOM property, attribute or event listener. */
+interface PropMeta {
+  /** Name of the prop. */
+  name: string;
+
+  /** Name of the DOM attribute to set. */
+  attrName: string;
+
+  /**
+   * Whether the DOM element has a writeable property whose name matches
+   * the prop name.
+   */
+  writable: boolean;
+
+  /**
+   * Name of the DOM event associated with this prop, or `null` if the prop
+   * is not an event listener.
+   */
+  eventName: string | null;
+
+  /** Whether to use a capture listener for this prop. */
+  useCapture: boolean;
+}
+
+interface PropsMeta {
+  [prop: string]: PropMeta;
+}
+
+/**
+ * Map from DOM element prototype to metadata for the various DOM properties.
+ */
+const elementPropData = new Map<Object, PropsMeta>();
+
+function getPropertyMeta(el: Element, prop: string): PropMeta {
+  const proto = Object.getPrototypeOf(el);
+  let elementProps = elementPropData.get(proto);
+  if (!elementProps) {
+    elementProps = {};
+    elementPropData.set(proto, elementProps);
+  }
+
+  let propMeta = elementProps[prop];
+  if (!propMeta) {
+    const descriptor = Object.getOwnPropertyDescriptor(proto, prop);
+    let eventName = null as string | null;
+    let useCapture = false;
+
+    if (prop.startsWith("on")) {
+      useCapture = prop.endsWith("Capture");
+
+      // Remove "on" prefix and "Capture" suffix to get the event name for use
+      // with `addEventListener`.
+      eventName = prop.slice(2, useCapture ? -7 : undefined);
+
+      // Use a heuristic to test if this is a native DOM event, in which case
+      // it uses a lower-case name.
+      const nameLower = eventName.toLowerCase();
+      if ("on" + nameLower in el) {
+        eventName = nameLower;
+      }
+    }
+    const writable = !!(descriptor && (descriptor.writable || descriptor.set));
+
+    propMeta = {
+      name: prop,
+      attrName: prop === "className" ? "class" : prop,
+      writable,
+      eventName,
+      useCapture,
+    };
+    elementProps[prop] = propMeta;
+  }
+
+  return propMeta;
 }
 
 /**
  * Create or update an event listener on a DOM element.
  */
-function setEventListener(el: Element, prop: string, value: (e: Event) => any) {
+function setEventListener(
+  el: Element,
+  prop: PropMeta,
+  value: (e: Event) => any
+) {
   const ureactEl = el as UReactElement;
   const listeners =
     ureactEl._ureactListeners || (ureactEl._ureactListeners = {});
-  const useCapture = prop.endsWith("Capture");
 
-  // Remove "on" prefix and "Capture" suffix to get the event name for use
-  // with `addEventListener`.
-  let eventName = prop.slice(2, useCapture ? -7 : undefined);
-
-  // Use a heuristic to test if this is a native DOM event, in which case
-  // it uses a lower-case name.
-  const nameLower = eventName.toLowerCase();
-  if ("on" + nameLower in el) {
-    eventName = nameLower;
-  }
-
-  if (!listeners[prop]) {
+  if (!listeners[prop.name]) {
     el.addEventListener(
-      eventName,
-      (event) => listeners[prop]?.(event),
-      useCapture
+      prop.eventName as string,
+      (event) => listeners[prop.name]?.(event),
+      prop.useCapture
     );
   }
-  listeners[prop] = value;
+  listeners[prop.name] = value;
 }
 
-function attrForProp(prop: string, isSvg: boolean) {
-  return isSvg && prop === "className" ? "class" : prop;
-}
-
-function unsetProperty(el: Element, isSvg: boolean, prop: string) {
-  if (isEventListener(prop)) {
+function unsetProperty(el: Element, prop: PropMeta) {
+  if (prop.eventName) {
     const noopListener = () => {};
     setEventListener(el, prop, noopListener);
-  }
-
-  if (!isSvg && prop in el) {
-    (el as any)[prop] = "";
+  } else if (prop.writable) {
+    (el as any)[prop.name] = "";
   } else {
-    el.removeAttribute(attrForProp(prop, isSvg));
+    el.removeAttribute(prop.attrName);
   }
 }
 
@@ -77,8 +135,7 @@ function updateInlineStyles(
  */
 function setProperty(
   el: Element,
-  isSvg: boolean,
-  prop: string,
+  prop: PropMeta,
   oldValue: any,
   newValue: any
 ) {
@@ -86,18 +143,18 @@ function setProperty(
     return;
   }
 
-  if (prop === "style") {
+  if (prop.name === "style") {
     updateInlineStyles(el as HTMLElement, oldValue || {}, newValue);
-  } else if (isEventListener(prop)) {
+  } else if (prop.eventName !== null) {
     setEventListener(el, prop, newValue);
-  } else if (!isSvg && prop in el) {
-    (el as any)[prop] = newValue;
-  } else if (prop === "dangerouslySetInnerHTML") {
+  } else if (prop.writable) {
+    (el as any)[prop.name] = newValue;
+  } else if (prop.name === "dangerouslySetInnerHTML") {
     if (oldValue?.__html !== newValue.__html) {
       el.innerHTML = newValue.__html;
     }
   } else {
-    el.setAttribute(attrForProp(prop, isSvg), newValue);
+    el.setAttribute(prop.attrName, newValue);
   }
 }
 
@@ -110,21 +167,17 @@ export function diffElementProps(
   oldProps: Props,
   newProps: Props
 ) {
-  // We could use `el instanceof SVGElement` here, but that would not work if
-  // rendering is done in an environment where `SVGElement` is not in the global
-  // scope, or if the element comes from a different window which has its own
-  // globals.
-  const isSvg = "ownerSVGElement" in el;
-
   for (let prop in oldProps) {
     if (prop !== "children" && !(prop in newProps)) {
-      unsetProperty(el, isSvg, prop);
+      const meta = getPropertyMeta(el, prop);
+      unsetProperty(el, meta);
     }
   }
 
   for (let prop in newProps) {
     if (prop !== "children") {
-      setProperty(el, isSvg, prop, oldProps[prop], newProps[prop]);
+      const meta = getPropertyMeta(el, prop);
+      setProperty(el, meta, oldProps[prop], newProps[prop]);
     }
   }
 }
