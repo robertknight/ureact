@@ -76,14 +76,6 @@ function topLevelDomNodes(c: Component): (Element | Text)[] {
   return c.output.flatMap(topLevelDomNodes);
 }
 
-function getParentDom(c: Component) {
-  let parent = c.parent;
-  while (parent && !parent.dom) {
-    parent = parent.parent;
-  }
-  return parent ? parent.dom : null;
-}
-
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
 const activeRoots = new Map<Element, Root>();
@@ -136,11 +128,12 @@ class Root {
    */
   render(vnode: VNodeChild) {
     this._rootComponent = this._diff(
-      null,
       this._rootComponent,
       vnode,
-      this.container
+      this.container,
+      null
     );
+
     this._handlePendingError();
   }
 
@@ -161,12 +154,14 @@ class Root {
 
   /**
    * Render a single VNode
+   *
+   * `parent` and `insertAfter` define where to insert the generated DOM nodes.
    */
   _diff(
-    parentComponent: Component | null,
     component: Component | null,
     vnode: VNodeChild,
-    parent: Element
+    parent: Element,
+    insertAfter: Node | null
   ): Component {
     // Update the existing component if there is one and the types match.
     if (component) {
@@ -198,15 +193,17 @@ class Root {
             component,
             component.output,
             vnode.props.children ?? null,
-            el
+            el,
+            null
           );
         } else if (typeof vnode.type === "function") {
           const result = this._renderCustom(vnode, component);
           component.output = this._diffList(
-            parentComponent,
+            component.parent,
             component.output,
             result,
-            parent
+            parent,
+            insertAfter
           );
         }
         typeMatched = true;
@@ -222,9 +219,13 @@ class Root {
 
     // If there is no existing component or it has a different type, render it
     // from scratch.
-    const newComponent = this._renderTree(parentComponent, vnode);
-    if (newComponent !== component) {
-      topLevelDomNodes(newComponent).forEach((node) => parent.append(node));
+    const newComponent = this._renderTree(component?.parent ?? null, vnode);
+    for (let node of topLevelDomNodes(newComponent)) {
+      parent.insertBefore(
+        node,
+        insertAfter ? insertAfter.nextSibling : parent.firstChild
+      );
+      insertAfter = node;
     }
     return newComponent;
   }
@@ -239,7 +240,8 @@ class Root {
     parentComponent: Component | null,
     prevOutput: Component[],
     vnodes: VNodeChildren,
-    parentElement: Element
+    parentElement: Element,
+    insertAfter: Node | null
   ): Component[] {
     const newOutput = [];
     const unmatchedOutput = new Set(prevOutput);
@@ -247,10 +249,6 @@ class Root {
     if (vnodes) {
       // Number of non-keyed children from the new vnode rendered so far.
       let nonKeyedCount = -1;
-
-      // The DOM node associated with the last-rendered child from the new
-      // vnode, excluding children don't render any output.
-      let lastDomOutput;
 
       for (let child of flattenChildren(vnodes)) {
         // Find the child from the previous render that corresponds to this
@@ -275,29 +273,25 @@ class Root {
         if (prevComponent) {
           unmatchedOutput.delete(prevComponent);
           childComponent = this._diff(
-            parentComponent,
             prevComponent,
             child,
-            parentElement
+            parentElement,
+            insertAfter
           );
         } else {
           childComponent = this._renderTree(parentComponent, child);
         }
 
-        // Ensure the output is in the correct position in the DOM.
-        newOutput.push(childComponent);
         for (let node of topLevelDomNodes(childComponent)) {
           parentElement.insertBefore(
             node,
-            lastDomOutput ? lastDomOutput.nextSibling : parentElement.firstChild
+            insertAfter ? insertAfter.nextSibling : parentElement.firstChild
           );
-          lastDomOutput = node;
+          insertAfter = node;
         }
 
-        const lastOutput = newOutput[newOutput.length - 1];
-        if (lastOutput.dom) {
-          lastDomOutput = lastOutput.dom;
-        }
+        // Ensure the output is in the correct position in the DOM.
+        newOutput.push(childComponent);
       }
     }
 
@@ -490,12 +484,46 @@ class Root {
         continue;
       }
 
-      this._diff(
-        component.parent,
-        component,
-        component.vnode,
-        (getParentDom(component) as Element) || this.container
-      );
+      // TODO - Ensure that any nodes generated after the update are inserted
+      // at the correct position: After the last DOM sibling rendered by earlier
+      // components in the tree. To get this we'll have to iterate backwards:
+      //
+      //  - Check all previous siblings for a last DOM child
+      //  - while parent is a non-DOM node
+      //    - go up one level
+      //    - check all previous siblings for a last DOM child
+      //  - If no such last DOM child was found, but we have a DOM parent, then
+      //    insert root nodes as first children of that parent
+      //  - If no such last DOM child was found and there is no DOM parent,
+      //    insert root nodes as first children of container
+      let insertAfter = null as Node | null;
+
+      let parent = component.parent;
+      while (parent) {
+        const siblingIndex = parent.output.indexOf(component);
+        for (let i = siblingIndex - 1; i >= 0; i--) {
+          const nodes = topLevelDomNodes(parent.output[i]);
+          if (nodes.length > 0) {
+            insertAfter = nodes[nodes.length - 1];
+            break;
+          }
+        }
+        if (insertAfter || parent.dom) {
+          break;
+        }
+        parent = parent.parent;
+      }
+
+      let parentDom;
+      if (insertAfter) {
+        parentDom = insertAfter.parentElement as Element;
+      } else if (parent?.dom) {
+        parentDom = parent.dom as Element;
+      } else {
+        parentDom = this.container;
+      }
+
+      this._diff(component, component.vnode, parentDom, insertAfter);
     }
 
     this._handlePendingError();
