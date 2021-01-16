@@ -176,7 +176,7 @@ export function diffElementProps(
       const newValue = newProps[prop];
 
       if (Object.is(oldValue, newValue)) {
-        return;
+        continue;
       }
 
       const meta = getPropertyMeta(el, prop);

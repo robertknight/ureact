@@ -154,6 +154,20 @@ describe("DOM properties, attribute & event listeners", () => {
       assert.equal(child.href, "https://manually-modified.org/");
     });
 
+    it("modifies properties that did change if others did not", () => {
+      const container = scratch.render(
+        h("a", { "aria-label": "test", href: "https://example.org/" })
+      );
+      const child = container.firstChild;
+      assert.equal(child.href, "https://example.org/");
+
+      // Re-render with an unchanged prop followed by a changed prop.
+      scratch.render(
+        h("a", { "aria-label": "test", href: "https://updated.org/" })
+      );
+      assert.equal(child.href, "https://updated.org/");
+    });
+
     it("updates attributes of existing element", () => {
       const container = scratch.render(h("div", { someAttr: 1 }));
       const child = container.firstChild;
