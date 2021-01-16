@@ -1,4 +1,11 @@
-import { Props, Ref, VNodeChildren } from "./jsx.js";
+import {
+  Props,
+  Ref,
+  VNodeChild,
+  VNodeChildren,
+  flattenChildren,
+  isEmptyVNode,
+} from "./jsx.js";
 import { shallowEqual } from "./diff-utils.js";
 import { useMemo, useRef } from "./hooks.js";
 
@@ -26,4 +33,8 @@ export function memo(component: (p: Props) => VNodeChildren) {
   };
   wrapper.displayName = `memo(${component.name})`;
   return wrapper;
+}
+
+export function toChildArray(children: VNodeChildren): VNodeChild[] {
+  return flattenChildren(children).filter((c) => !isEmptyVNode(c));
 }

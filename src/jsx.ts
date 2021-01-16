@@ -1,13 +1,8 @@
 export type NodeType = string | Function;
 export type VNodeKey = string | number;
-export type VNodeChildren =
-  | VNode
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | VNodeChildren[];
+
+export type VNodeChild = string | boolean | number | null | undefined | VNode;
+export type VNodeChildren = VNodeChild | VNodeChildren[];
 
 export interface Props {
   children?: VNodeChildren;
@@ -91,4 +86,28 @@ export function createElement(
  */
 export function isValidElement(obj: any): obj is VNode {
   return obj != null && obj._tag === elementSymbol;
+}
+
+export function flattenChildren(children: VNodeChildren): VNodeChild[] {
+  if (!Array.isArray(children)) {
+    return [children];
+  }
+  if (children.every((c) => !Array.isArray(c))) {
+    return children as VNodeChild[];
+  }
+  return children.flat() as VNodeChild[];
+}
+
+/**
+ * Return true if `vnode` does not render any output.
+ */
+export function isEmptyVNode(vnode: VNodeChild): vnode is null | boolean {
+  return vnode == null || typeof vnode === "boolean";
+}
+
+/**
+ * Return true if `vnode` renders text.
+ */
+export function isTextVNode(vnode: VNodeChild): vnode is string | number {
+  return typeof vnode === "string" || typeof vnode === "number";
 }

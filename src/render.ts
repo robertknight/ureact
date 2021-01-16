@@ -1,4 +1,13 @@
-import { Props, VNode, VNodeChildren, isValidElement } from "./jsx.js";
+import {
+  Props,
+  VNode,
+  VNodeChild,
+  VNodeChildren,
+  flattenChildren,
+  isEmptyVNode,
+  isTextVNode,
+  isValidElement,
+} from "./jsx.js";
 import { ContextProvider } from "./context.js";
 import { EffectTiming, HookState, setHookState } from "./hooks.js";
 import { diffElementProps } from "./dom-props.js";
@@ -35,43 +44,6 @@ interface Component {
 
   /** Whether this component is an `<svg>` DOM component or a child of one. */
   svg: boolean;
-}
-
-/**
- * Value which can be returned from a custom component as the result to render
- * or passed to `render`.
- *
- * These fall into several categories:
- *
- *  - Values which render nothing (null, boolean)
- *  - Values which render text
- *  - Values which render a DOM element
- *  - Values which render a custom component
- */
-type VNodeChild = string | boolean | number | null | undefined | VNode;
-
-function flattenChildren(children: VNodeChildren): VNodeChild[] {
-  if (!Array.isArray(children)) {
-    return [children];
-  }
-  if (children.every((c) => !Array.isArray(c))) {
-    return children as VNodeChild[];
-  }
-  return children.flat() as VNodeChild[];
-}
-
-/**
- * Return true if `vnode` does not render any output.
- */
-function isEmptyVNode(vnode: VNodeChild): vnode is null | boolean {
-  return vnode == null || typeof vnode === "boolean";
-}
-
-/**
- * Return true if `vnode` renders text.
- */
-function isTextVNode(vnode: VNodeChild): vnode is string | number {
-  return typeof vnode === "string" || typeof vnode === "number";
 }
 
 function vnodeKey(vnode: any) {

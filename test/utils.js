@@ -8,6 +8,7 @@ import {
   Fragment,
   createRef,
   memo,
+  toChildArray,
 } from "../build/index.js";
 
 import { createScratchpad } from "./utils/scratchpad.js";
@@ -93,6 +94,36 @@ describe("utilities", () => {
       scratch.render(h(Component, { firstName: "Jim", lastName: "Jones" }));
       assert.equal(renderCount, 4);
       assert.equal(container.innerHTML, "<div>Hello Jim Jones</div>");
+    });
+  });
+
+  describe("toChildArray", () => {
+    [
+      {
+        in: [],
+        out: [],
+      },
+      ...[true, false, null, undefined].map((v) => ({ in: v, out: [] })),
+      {
+        in: h("div"),
+        out: [h("div")],
+      },
+      {
+        in: "test",
+        out: ["test"],
+      },
+      {
+        in: [h("div"), h("span")],
+        out: [h("div"), h("span")],
+      },
+      {
+        in: [[h("div")]],
+        out: [h("div")],
+      },
+    ].forEach((fixture, i) => {
+      it(`returns a flattened array of children (${i})`, () => {
+        assert.deepEqual(toChildArray(fixture.in), fixture.out);
+      });
     });
   });
 });
