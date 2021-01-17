@@ -30,11 +30,19 @@ interface PropsMeta {
 }
 
 /**
- * Map from DOM element prototype to metadata for the various DOM properties.
+ * Cache of DOM property metadata, keyed by DOM element prototype and property
+ * name.
  */
 const elementPropData = new Map<Object, PropsMeta>();
 
+/**
+ * Get the metadata that instructs us how to set a given prop on a DOM element.
+ *
+ * This metadata is computed when a prop is first set for a given DOM element
+ * type and then cached for future updates.
+ */
 function getPropertyMeta(el: Element, prop: string): PropMeta {
+  // Lookup cached metadata.
   const proto = Object.getPrototypeOf(el);
   let elementProps = elementPropData.get(proto);
   if (!elementProps) {
@@ -43,56 +51,65 @@ function getPropertyMeta(el: Element, prop: string): PropMeta {
   }
 
   let propMeta = elementProps[prop];
-  if (!propMeta) {
-    let type: DOMPropType;
-    let domName = prop;
-    let flags = 0;
+  if (propMeta) {
+    return propMeta;
+  }
 
-    if (prop === "style") {
-      type = "styles";
-    } else if (prop === "dangerouslySetInnerHTML") {
-      type = "html";
-    } else if (prop.startsWith("on")) {
-      type = "event";
+  // No cached metadata found, compute it and cache for future usage.
+  let type: DOMPropType;
+  let domName = prop;
+  let flags = 0;
 
-      if (prop.endsWith("Capture")) {
-        flags |= PROP_CAPTURE_EVENT;
-      }
+  if (prop === "style") {
+    type = "styles";
+  } else if (prop === "dangerouslySetInnerHTML") {
+    type = "html";
+  } else if (prop.startsWith("on")) {
+    type = "event";
 
-      // Remove "on" prefix and "Capture" suffix to get the event name for use
-      // with `addEventListener`.
-      let eventName = prop.slice(
-        2,
-        flags & PROP_CAPTURE_EVENT ? -7 : undefined
-      );
+    if (prop.endsWith("Capture")) {
+      flags |= PROP_CAPTURE_EVENT;
+    }
 
-      // Use a heuristic to test if this is a native DOM event, in which case
-      // it uses a lower-case name.
-      const nameLower = eventName.toLowerCase();
-      if ("on" + nameLower in el) {
-        eventName = nameLower;
-      }
-      domName = eventName;
+    // Remove "on" prefix and "Capture" suffix to get the event name for use
+    // with `addEventListener`.
+    let eventName = prop.slice(2, flags & PROP_CAPTURE_EVENT ? -7 : undefined);
+
+    // Use a heuristic to test if this is a native DOM event, in which case
+    // it uses a lower-case name.
+    const nameLower = eventName.toLowerCase();
+    if ("on" + nameLower in el) {
+      eventName = nameLower;
+    }
+    domName = eventName;
+  } else {
+    // FIXME - This only looks as the current prototype. The property may exist
+    // on a parent class.
+    const descriptor = Object.getOwnPropertyDescriptor(proto, prop);
+
+    // If the DOM element has a settable property that matches the prop name
+    // then we'll write directly to the DOM property, otherwise fallback to
+    // using an attribute.
+    if (descriptor && (descriptor.writable || descriptor.set)) {
+      type = "property";
     } else {
-      const descriptor = Object.getOwnPropertyDescriptor(proto, prop);
+      type = "attribute";
+
+      // For SVG elements the `className` property exists but is not writable.
+      // Therefore we need to fall back to the corresponding attribute.
       if (prop === "className") {
         domName = "class";
       }
-      if (descriptor && (descriptor.writable || descriptor.set)) {
-        type = "property";
-      } else {
-        type = "attribute";
-      }
     }
-
-    propMeta = {
-      type,
-      name: prop,
-      domName,
-      flags,
-    };
-    elementProps[prop] = propMeta;
   }
+
+  propMeta = {
+    type,
+    name: prop,
+    domName,
+    flags,
+  };
+  elementProps[prop] = propMeta;
 
   return propMeta;
 }
@@ -142,14 +159,20 @@ function unsetProperty(el: Element, prop: PropMeta) {
 
 const cssPropertySupportsPixels = new Map<string, boolean>();
 
-function acceptsPixels(testEl: HTMLElement, key: string) {
-  let supportsPixels = cssPropertySupportsPixels.get(key);
+/**
+ * Test whether a CSS property accepts pixel values.
+ *
+ * If it does, numeric values for the corresponding style property are converted
+ * to 'px' values.
+ */
+function acceptsPixels(testEl: HTMLElement, styleProperty: string) {
+  let supportsPixels = cssPropertySupportsPixels.get(styleProperty);
   if (typeof supportsPixels === "boolean") {
     return supportsPixels;
   }
-  testEl.style[key as any] = "0px";
-  supportsPixels = testEl.style[key as any] === "0px";
-  cssPropertySupportsPixels.set(key, supportsPixels);
+  testEl.style[styleProperty as any] = "0px";
+  supportsPixels = testEl.style[styleProperty as any] === "0px";
+  cssPropertySupportsPixels.set(styleProperty, supportsPixels);
   return supportsPixels;
 }
 
