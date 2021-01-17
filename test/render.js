@@ -192,6 +192,20 @@ describe("rendering", () => {
 
       assert.deepEqual(mutations, []);
     });
+
+    it("can transition an empty child to a non-empty child", () => {
+      const App = ({ showChild }) => {
+        return h("div", {}, showChild && h("span", {}, "Child"));
+      };
+
+      const container = scratch.render(h(App, { showChild: false }));
+
+      scratch.render(h(App, { showChild: true }));
+      assert.equal(container.innerHTML, "<div><span>Child</span></div>");
+
+      scratch.render(h(App, { showChild: false }));
+      assert.equal(container.innerHTML, "<div></div>");
+    });
   });
 
   describe("SVG element rendering", () => {
