@@ -307,6 +307,26 @@ describe("DOM properties, attribute & event listeners", () => {
       assert.equal(style.cssText, "font-weight: bold;");
     });
 
+    it("sets inline style properties to pixel values if property supports pixels", () => {
+      const container = scratch.render(
+        h("div", {
+          style: {
+            flexGrow: 1,
+            fontSize: 12,
+            top: 5,
+          },
+        })
+      );
+      const style = container.firstChild.style;
+
+      // Properties that should be set to pixel values.
+      assert.equal(style.fontSize, "12px");
+      assert.equal(style.top, "5px");
+
+      // Properties that should not be set to pixel values.
+      assert.equal(style.flexGrow, "1");
+    });
+
     it("updates custom HTML", () => {
       const container = scratch.render(
         h("div", {

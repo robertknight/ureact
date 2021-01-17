@@ -115,6 +115,19 @@ function unsetProperty(el: Element, prop: PropMeta) {
   }
 }
 
+const cssPropertySupportsPixels = new Map<string, boolean>();
+
+function acceptsPixels(testEl: HTMLElement, key: string) {
+  let supportsPixels = cssPropertySupportsPixels.get(key);
+  if (typeof supportsPixels === "boolean") {
+    return supportsPixels;
+  }
+  testEl.style[key as any] = "0px";
+  supportsPixels = testEl.style[key as any] === "0px";
+  cssPropertySupportsPixels.set(key, supportsPixels);
+  return supportsPixels;
+}
+
 function updateInlineStyles(
   el: HTMLElement,
   oldValue: CSSStyleDeclaration,
@@ -125,7 +138,11 @@ function updateInlineStyles(
   }
   el.style.cssText = "";
   for (let key in newValue) {
-    el.style[key] = newValue[key];
+    let value = newValue[key];
+    if (typeof value === "number" && acceptsPixels(el, key)) {
+      value = value + "px";
+    }
+    el.style[key] = value;
   }
 }
 
