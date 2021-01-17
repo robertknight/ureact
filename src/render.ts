@@ -16,7 +16,13 @@ import { diffElementProps } from "./dom-props.js";
  * Backing tree for a rendered vnode.
  */
 interface Component {
+  /**
+   * The parent component. This is not set on the root component or the
+   * empty component.
+   */
   parent: Component | null;
+
+  /** The depth of the component from the root. Not set on the empty component. */
   depth: number;
 
   /** The vnode that produced this component. */
@@ -38,6 +44,10 @@ interface Component {
    */
   dom: Element | Text | null;
 
+  /**
+   * Lazily-allocated hook data for component. This is only set for components
+   * that use hooks.
+   */
   hooks: HookState | null;
 
   contextProvider: ContextProvider<any> | null;
@@ -45,6 +55,20 @@ interface Component {
   /** Whether this component is an `<svg>` DOM component or a child of one. */
   svg: boolean;
 }
+
+/**
+ * The component instance that represents all empty vnodes.
+ */
+const emptyComponent: Component = Object.freeze({
+  parent: null,
+  depth: -1,
+  vnode: null,
+  output: [],
+  dom: null,
+  hooks: null,
+  contextProvider: null,
+  svg: false,
+});
 
 function vnodeKey(vnode: any) {
   return isValidElement(vnode) ? vnode.key : null;
@@ -160,6 +184,7 @@ class Root {
    */
   render(vnode: VNodeChild) {
     this._rootComponent = this._diff(
+      null,
       this._rootComponent,
       vnode,
       this.container,
@@ -190,6 +215,7 @@ class Root {
    * `parent` and `insertAfter` define where to insert the generated DOM nodes.
    */
   _diff(
+    parentComponent: Component | null,
     component: Component | null,
     vnode: VNodeChild,
     parent: Element,
@@ -231,7 +257,7 @@ class Root {
         } else if (typeof vnode.type === "function") {
           const result = this._renderCustom(vnode, component);
           component.output = this._diffList(
-            component.parent,
+            component,
             component.output,
             result,
             parent,
@@ -242,7 +268,9 @@ class Root {
       }
 
       if (typeMatched) {
-        component.vnode = vnode;
+        if (!isEmptyVNode(vnode)) {
+          component.vnode = vnode;
+        }
         return component;
       } else {
         this._unmount(component);
@@ -251,7 +279,7 @@ class Root {
 
     // If there is no existing component or it has a different type, render it
     // from scratch.
-    const newComponent = this._renderTree(component?.parent ?? null, vnode);
+    const newComponent = this._renderTree(parentComponent ?? null, vnode);
     for (let node of topLevelDomNodes(newComponent)) {
       insertNodeAfter(node, parent, insertAfter);
       insertAfter = node;
@@ -302,6 +330,7 @@ class Root {
           prevOutput.splice(prevComponentIndex, 1);
 
           childComponent = this._diff(
+            parentComponent,
             prevComponent,
             child,
             parentElement,
@@ -334,6 +363,10 @@ class Root {
    * Render a component tree beginning at `vnode`.
    */
   _renderTree(parent: Component | null, vnode: VNodeChild): Component {
+    if (isEmptyVNode(vnode)) {
+      return emptyComponent;
+    }
+
     const newComponent: Component = {
       parent,
       depth: parent ? parent.depth + 1 : 0,
@@ -345,9 +378,7 @@ class Root {
       svg: parent ? parent.svg : false,
     };
 
-    if (isEmptyVNode(vnode)) {
-      newComponent.dom = null;
-    } else if (isTextVNode(vnode)) {
+    if (isTextVNode(vnode)) {
       newComponent.dom = this._document.createTextNode(vnode.toString());
     } else if (!isValidElement(vnode)) {
       throw new Error("Object is not a valid element");
@@ -531,7 +562,13 @@ class Root {
           parentDom = this.container;
         }
 
-        this._diff(component, component.vnode, parentDom, insertAfter);
+        this._diff(
+          component.parent,
+          component,
+          component.vnode,
+          parentDom,
+          insertAfter
+        );
       }
     }
 
