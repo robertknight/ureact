@@ -108,6 +108,26 @@ some other API differences:
   }
   ```
 
+- The rules for determining how to apply a prop to a DOM element are determined
+  differently. In the vast majority of cases the end result is the same, but
+  ureact uses a generic set of rules rather than rules for specific DOM properties:
+
+  1. If the prop is `style` it sets inline styles
+  2. If the prop is `dangerouslySetInnerHTML` it sets `innerHTML`
+  3. If the prop name starts with "on", it adds an event handler. The prop name
+     after the "on" prefix is used as the event name. If the DOM element has an
+     `oneventname` property then the event name is lower-cased (eg. `onClick`
+     maps to the `click` event rather than the `Click` event)
+  4. If a DOM element has a writable or settable property whose name matches the
+     prop, then that DOM property is set
+  5. Otherwise the prop sets the attribute whose name matches the prop
+
+  The above list is similar to how Preact works.
+
+  The advantage of using these generic rules is that it applies equally well
+  to custom element types and new properties added in future as existing DOM
+  properties, providing that these elements/properties follow existing conventions.
+
 ## Implementation notes
 
 As well as being based entirely around the modern React APIs, a few implementation
@@ -126,3 +146,10 @@ details are notable:
   differences.
 - Strict type checking is used. This helped to catch many potential errors during
   development.
+- ureact tries to minimize the number of rules for handling specific DOM or
+  CSS props. Instead the logic for deciding how to apply a prop to a DOM element
+  uses general heuristics.
+
+  This enables greater consistency across all DOM properties/attributes/events as
+  well as better generalization to custom element types and new DOM events, properties etc.
+  that are added in future. See `src/dom-props.ts` for details.
