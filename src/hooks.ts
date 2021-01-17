@@ -252,18 +252,17 @@ export class HookState {
   }
 }
 
-let currentHooks: HookState | null = null;
+let currentHooks: (() => HookState) | null = null;
 
-export function setHookState(hs: HookState | null) {
+export function setHookState(hs: (() => HookState) | null) {
   currentHooks = hs;
-  hs?.resetIndex();
 }
 
 function getHookState() {
   if (!currentHooks) {
     throw new Error("Hook called outside of component");
   }
-  return currentHooks;
+  return currentHooks();
 }
 
 export function registerContext<T>(provider: ContextProvider<T>) {

@@ -115,6 +115,8 @@ class Root {
   private _pendingLayoutEffects: Set<Component>;
   private _pendingUpdate: Set<Component>;
   private _currentError: RenderError | null;
+  private _rendering: Component | null;
+  private _getHookState: () => HookState;
 
   /**
    * Create a root which renders into `container`.
@@ -128,6 +130,22 @@ class Root {
     this._pendingLayoutEffects = new Set();
     this._pendingUpdate = new Set();
     this._currentError = null;
+    this._rendering = null;
+
+    this._getHookState = () => {
+      const component = this._rendering!;
+      if (component.hooks) {
+        return component.hooks;
+      }
+
+      component.hooks = new HookState({
+        scheduleUpdate: () => this._scheduleUpdate(component),
+        scheduleEffects: (when) => this._scheduleEffects(component, when),
+        getContext: (type) => this._getContext(component, type),
+        registerContext: (provider) => (component.contextProvider = provider),
+      });
+      return component.hooks;
+    };
 
     activeRoots.set(container, this);
   }
@@ -375,20 +393,12 @@ class Root {
   }
 
   _renderCustom(vnode: VNode, component: Component) {
-    if (!component.hooks) {
-      // We currently initialize a `HookState` for every component, whether it
-      // uses them or not. This could be optimized by initializing `HookState`
-      // lazily and also creating a class for the connector.
-      component.hooks = new HookState({
-        scheduleUpdate: () => this._scheduleUpdate(component),
-        scheduleEffects: (when) => this._scheduleEffects(component, when),
-        getContext: (type) => this._getContext(component, type),
-        registerContext: (provider) => (component.contextProvider = provider),
-      });
-    }
     this._pendingUpdate.delete(component);
 
-    setHookState(component.hooks);
+    this._rendering = component;
+    this._rendering.hooks?.resetIndex();
+    setHookState(this._getHookState);
+
     let result;
     try {
       result = (vnode.type as Function).call(null, vnode.props);
@@ -396,6 +406,8 @@ class Root {
       result = null;
       this._invokeErrorHandler(component, err);
     }
+
+    this._rendering = null;
     setHookState(null);
 
     return result;
@@ -558,7 +570,7 @@ class Root {
         this._pendingUpdate.delete(component);
         this._pendingEffects.delete(component);
         this._pendingLayoutEffects.delete(component);
-        component.hooks!.cleanup();
+        component.hooks?.cleanup();
       }
     }
 
