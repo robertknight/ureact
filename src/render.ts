@@ -85,6 +85,20 @@ interface RenderError {
   handled: boolean;
 }
 
+function insertNodeAfter(node: Node, parent: Element, after: Node | null) {
+  const before = after ? after.nextSibling : parent.firstChild;
+
+  // Calling `parent.insertBefore` has overhead and side effects (eg. causing
+  // the element to lose focus) even if the node would logically be positioned
+  // in the same place afterwards, so only call if necessary.
+  if (
+    node.parentNode !== parent ||
+    (node !== before && node.nextSibling !== before)
+  ) {
+    parent.insertBefore(node, before);
+  }
+}
+
 /**
  * Render tree root.
  *
@@ -221,10 +235,7 @@ class Root {
     // from scratch.
     const newComponent = this._renderTree(component?.parent ?? null, vnode);
     for (let node of topLevelDomNodes(newComponent)) {
-      parent.insertBefore(
-        node,
-        insertAfter ? insertAfter.nextSibling : parent.firstChild
-      );
+      insertNodeAfter(node, parent, insertAfter);
       insertAfter = node;
     }
     return newComponent;
@@ -283,10 +294,7 @@ class Root {
         }
 
         for (let node of topLevelDomNodes(childComponent)) {
-          parentElement.insertBefore(
-            node,
-            insertAfter ? insertAfter.nextSibling : parentElement.firstChild
-          );
+          insertNodeAfter(node, parentElement, insertAfter);
           insertAfter = node;
         }
 

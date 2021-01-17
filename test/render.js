@@ -168,6 +168,30 @@ describe("rendering", () => {
         scratch.render(h("ul", {}, "One", {}, "Two"));
       }, "Object is not a valid element");
     });
+
+    it("does not modify DOM if element positions are unchanged", async () => {
+      const App = () => {
+        return h(
+          "ul",
+          {},
+          h("li", {}, h("b", {}, "Item one")),
+          h("li", {}, h("b", {}, "Item two")),
+          h("li", {}, h("b", {}, "Item three"))
+        );
+      };
+
+      const container = scratch.render(h(App));
+      const mutations = [];
+      const observer = new scratch.window.MutationObserver((ms) =>
+        mutations.push(...ms)
+      );
+      observer.observe(container, { childList: true, subtree: true });
+
+      scratch.render(h(App));
+      await delay(0); // Wait for mutation notifications to be delivered.
+
+      assert.deepEqual(mutations, []);
+    });
   });
 
   describe("SVG element rendering", () => {
