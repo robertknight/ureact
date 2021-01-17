@@ -4,6 +4,7 @@ const { assert } = chai;
 
 import {
   ErrorBoundary,
+  Fragment,
   createElement as h,
   render,
   unmountComponentAtNode,
@@ -588,6 +589,41 @@ describe("rendering", () => {
       assert.equal(container.innerHTML, "<div>Hello world</div>");
       assert.equal(parentRenderCount, 2);
       assert.equal(childRenderCount, 1);
+    });
+  });
+
+  describe("re-rendering after state updates", () => {
+    it("inserts updated component at correct position", () => {
+      const ChildA = () => h("div", {}, "ChildA");
+      const ChildB = () => {
+        const [clicked, setClicked] = useState(false);
+        return h(
+          "button",
+          { onClick: () => setClicked(true) },
+          `ChildB:${clicked}`
+        );
+      };
+      const ChildC = () => h("div", {}, "ChildC");
+
+      // Create a parent to wrap the custom components. Note that the `ChildB`
+      // component is wrapped in a custom component. This means that finding
+      // the DOM node to position the updated `ChildB`'s content after can't
+      // just look at the immediate siblings of `ChildB` but rendering has to
+      // look up the tree.
+      const Parent = () =>
+        h("div", {}, h(ChildA), h(Fragment, {}, h(ChildB)), h(ChildC));
+
+      const container = scratch.render(h(Parent));
+
+      assert.equal(container.textContent, "ChildAChildB:falseChildC");
+
+      // Trigger re-render of the `ChildB` component.
+      act(() => {
+        container.querySelector("button").click();
+      });
+
+      // Check that `ChildB` was correctly updated and is correctly positioned.
+      assert.equal(container.textContent, "ChildAChildB:trueChildC");
     });
   });
 

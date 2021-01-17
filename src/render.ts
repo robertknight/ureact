@@ -498,9 +498,10 @@ class Root {
       //    insert root nodes as first children of container
       let insertAfter = null as Node | null;
 
+      let sibling = component;
       let parent = component.parent;
       while (parent) {
-        const siblingIndex = parent.output.indexOf(component);
+        const siblingIndex = parent.output.indexOf(sibling);
         for (let i = siblingIndex - 1; i >= 0; i--) {
           const nodes = topLevelDomNodes(parent.output[i]);
           if (nodes.length > 0) {
@@ -511,6 +512,8 @@ class Root {
         if (insertAfter || parent.dom) {
           break;
         }
+
+        sibling = parent;
         parent = parent.parent;
       }
 
