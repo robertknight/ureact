@@ -483,18 +483,6 @@ class Root {
           continue;
         }
 
-        // TODO - Ensure that any nodes generated after the update are inserted
-        // at the correct position: After the last DOM sibling rendered by earlier
-        // components in the tree. To get this we'll have to iterate backwards:
-        //
-        //  - Check all previous siblings for a last DOM child
-        //  - while parent is a non-DOM node
-        //    - go up one level
-        //    - check all previous siblings for a last DOM child
-        //  - If no such last DOM child was found, but we have a DOM parent, then
-        //    insert root nodes as first children of that parent
-        //  - If no such last DOM child was found and there is no DOM parent,
-        //    insert root nodes as first children of container
         let insertAfter = null as Node | null;
 
         let sibling = component;
