@@ -12,6 +12,7 @@ import {
 } from "../build/index.js";
 import { act } from "../build/test-utils.js";
 
+import { delay } from "./utils/delay.js";
 import { createScratchpad } from "./utils/scratchpad.js";
 
 /**
@@ -624,6 +625,48 @@ describe("rendering", () => {
 
       // Check that `ChildB` was correctly updated and is correctly positioned.
       assert.equal(container.textContent, "ChildAChildB:trueChildC");
+    });
+
+    it("flushes state updates that are triggered during a state update", async () => {
+      // Contrived example of a child component which updates its state during
+      // render in response to changes in props.
+      const Child = ({ count }) => {
+        const [childCount, setChildCount] = useState(count);
+        if (count !== childCount) {
+          setChildCount(count);
+        }
+        return childCount;
+      };
+
+      const Parent = () => {
+        const [count, setCount] = useState(10);
+        return h(
+          "button",
+          { onClick: () => setCount((c) => c + 1) },
+          h(Child, { count })
+        );
+      };
+
+      const container = scratch.render(h(Fragment, {}, h(Parent), h(Parent)));
+      assert.equal(
+        container.innerHTML,
+        "<button>10</button><button>10</button>"
+      );
+
+      // Trigger multiple state update in `Parent`s. This ensures that when the
+      // first state update to a `Child` happens during re-rendering, there will
+      // still be pending updates from the previous render to process.
+      container.querySelectorAll("button")[0].click();
+      container.querySelectorAll("button")[1].click();
+
+      // Await flush naturally. Avoid `act` here because this test checks that
+      // updates are scheduled naturally.
+      await delay(0);
+
+      assert.equal(
+        container.innerHTML,
+        "<button>11</button><button>11</button>"
+      );
     });
   });
 

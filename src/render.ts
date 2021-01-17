@@ -470,63 +470,63 @@ class Root {
   }
 
   _flushUpdates() {
-    if (this._pendingUpdate.size === 0) {
-      return;
-    }
+    // Flushing updates may trigger additional state changes. Therefore we loop
+    // until there are no more pending updates.
+    while (this._pendingUpdate.size > 0) {
+      const pending = [...this._pendingUpdate];
+      pending.sort((a, b) => a.depth - b.depth);
 
-    const pending = [...this._pendingUpdate];
-    pending.sort((a, b) => a.depth - b.depth);
+      for (let component of pending) {
+        if (!this._pendingUpdate.has(component)) {
+          // Component is a child of one higher up the tree that was already
+          // re-rendered.
+          continue;
+        }
 
-    for (let component of pending) {
-      if (!this._pendingUpdate.has(component)) {
-        // Component is a child of one higher up the tree that was already
-        // re-rendered.
-        continue;
-      }
+        // TODO - Ensure that any nodes generated after the update are inserted
+        // at the correct position: After the last DOM sibling rendered by earlier
+        // components in the tree. To get this we'll have to iterate backwards:
+        //
+        //  - Check all previous siblings for a last DOM child
+        //  - while parent is a non-DOM node
+        //    - go up one level
+        //    - check all previous siblings for a last DOM child
+        //  - If no such last DOM child was found, but we have a DOM parent, then
+        //    insert root nodes as first children of that parent
+        //  - If no such last DOM child was found and there is no DOM parent,
+        //    insert root nodes as first children of container
+        let insertAfter = null as Node | null;
 
-      // TODO - Ensure that any nodes generated after the update are inserted
-      // at the correct position: After the last DOM sibling rendered by earlier
-      // components in the tree. To get this we'll have to iterate backwards:
-      //
-      //  - Check all previous siblings for a last DOM child
-      //  - while parent is a non-DOM node
-      //    - go up one level
-      //    - check all previous siblings for a last DOM child
-      //  - If no such last DOM child was found, but we have a DOM parent, then
-      //    insert root nodes as first children of that parent
-      //  - If no such last DOM child was found and there is no DOM parent,
-      //    insert root nodes as first children of container
-      let insertAfter = null as Node | null;
-
-      let sibling = component;
-      let parent = component.parent;
-      while (parent) {
-        const siblingIndex = parent.output.indexOf(sibling);
-        for (let i = siblingIndex - 1; i >= 0; i--) {
-          const nodes = topLevelDomNodes(parent.output[i]);
-          if (nodes.length > 0) {
-            insertAfter = nodes[nodes.length - 1];
+        let sibling = component;
+        let parent = component.parent;
+        while (parent) {
+          const siblingIndex = parent.output.indexOf(sibling);
+          for (let i = siblingIndex - 1; i >= 0; i--) {
+            const nodes = topLevelDomNodes(parent.output[i]);
+            if (nodes.length > 0) {
+              insertAfter = nodes[nodes.length - 1];
+              break;
+            }
+          }
+          if (insertAfter || parent.dom) {
             break;
           }
+
+          sibling = parent;
+          parent = parent.parent;
         }
-        if (insertAfter || parent.dom) {
-          break;
+
+        let parentDom;
+        if (insertAfter) {
+          parentDom = insertAfter.parentElement as Element;
+        } else if (parent?.dom) {
+          parentDom = parent.dom as Element;
+        } else {
+          parentDom = this.container;
         }
 
-        sibling = parent;
-        parent = parent.parent;
+        this._diff(component, component.vnode, parentDom, insertAfter);
       }
-
-      let parentDom;
-      if (insertAfter) {
-        parentDom = insertAfter.parentElement as Element;
-      } else if (parent?.dom) {
-        parentDom = parent.dom as Element;
-      } else {
-        parentDom = this.container;
-      }
-
-      this._diff(component, component.vnode, parentDom, insertAfter);
     }
 
     this._handlePendingError();
