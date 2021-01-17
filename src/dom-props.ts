@@ -6,28 +6,23 @@ interface UReactElement extends Element {
   _ureactListeners?: { [event: string]: Function | null };
 }
 
+// List of flags used by `PropMeta`.
+const PROP_CAPTURE_EVENT = 2;
+
+type DOMPropType = "property" | "attribute" | "event" | "styles" | "html";
+
 /** Metadata about a DOM property, attribute or event listener. */
 interface PropMeta {
   /** Name of the prop. */
   name: string;
 
-  /** Name of the DOM attribute to set. */
-  attrName: string;
+  type: DOMPropType;
 
-  /**
-   * Whether the DOM element has a writeable property whose name matches
-   * the prop name.
-   */
-  writable: boolean;
+  /** Name of DOM property, attribute or event. */
+  domName: string;
 
-  /**
-   * Name of the DOM event associated with this prop, or `null` if the prop
-   * is not an event listener.
-   */
-  eventName: string | null;
-
-  /** Whether to use a capture listener for this prop. */
-  useCapture: boolean;
+  /** Flags that determine how this DOM prop is set or updated. */
+  flags: number;
 }
 
 interface PropsMeta {
@@ -49,16 +44,27 @@ function getPropertyMeta(el: Element, prop: string): PropMeta {
 
   let propMeta = elementProps[prop];
   if (!propMeta) {
-    const descriptor = Object.getOwnPropertyDescriptor(proto, prop);
-    let eventName = null as string | null;
-    let useCapture = false;
+    let type: DOMPropType;
+    let domName = prop;
+    let flags = 0;
 
-    if (prop.startsWith("on")) {
-      useCapture = prop.endsWith("Capture");
+    if (prop === "style") {
+      type = "styles";
+    } else if (prop === "dangerouslySetInnerHTML") {
+      type = "html";
+    } else if (prop.startsWith("on")) {
+      type = "event";
+
+      if (prop.endsWith("Capture")) {
+        flags |= PROP_CAPTURE_EVENT;
+      }
 
       // Remove "on" prefix and "Capture" suffix to get the event name for use
       // with `addEventListener`.
-      eventName = prop.slice(2, useCapture ? -7 : undefined);
+      let eventName = prop.slice(
+        2,
+        flags & PROP_CAPTURE_EVENT ? -7 : undefined
+      );
 
       // Use a heuristic to test if this is a native DOM event, in which case
       // it uses a lower-case name.
@@ -66,15 +72,24 @@ function getPropertyMeta(el: Element, prop: string): PropMeta {
       if ("on" + nameLower in el) {
         eventName = nameLower;
       }
+      domName = eventName;
+    } else {
+      const descriptor = Object.getOwnPropertyDescriptor(proto, prop);
+      if (prop === "className") {
+        domName = "class";
+      }
+      if (descriptor && (descriptor.writable || descriptor.set)) {
+        type = "property";
+      } else {
+        type = "attribute";
+      }
     }
-    const writable = !!(descriptor && (descriptor.writable || descriptor.set));
 
     propMeta = {
+      type,
       name: prop,
-      attrName: prop === "className" ? "class" : prop,
-      writable,
-      eventName,
-      useCapture,
+      domName,
+      flags,
     };
     elementProps[prop] = propMeta;
   }
@@ -96,22 +111,32 @@ function setEventListener(
 
   if (!listeners[prop.name]) {
     el.addEventListener(
-      prop.eventName as string,
+      prop.domName as string,
       (event) => listeners[prop.name]?.(event),
-      prop.useCapture
+      !!(prop.flags & PROP_CAPTURE_EVENT)
     );
   }
   listeners[prop.name] = value;
 }
 
 function unsetProperty(el: Element, prop: PropMeta) {
-  if (prop.eventName) {
-    const noopListener = () => {};
-    setEventListener(el, prop, noopListener);
-  } else if (prop.writable) {
-    (el as any)[prop.name] = "";
-  } else {
-    el.removeAttribute(prop.attrName);
+  switch (prop.type) {
+    case "property":
+      (el as any)[prop.name] = "";
+      break;
+    case "attribute":
+      el.removeAttribute(prop.domName);
+      break;
+    case "event":
+      const noopListener = () => {};
+      setEventListener(el, prop, noopListener);
+      break;
+    case "styles":
+      (el as HTMLElement).style.cssText = "";
+      break;
+    case "html":
+      el.innerHTML = "";
+      break;
   }
 }
 
@@ -156,18 +181,24 @@ function setProperty(
   oldValue: any,
   newValue: any
 ) {
-  if (prop.name === "style") {
-    updateInlineStyles(el as HTMLElement, oldValue || {}, newValue);
-  } else if (prop.eventName !== null) {
-    setEventListener(el, prop, newValue);
-  } else if (prop.writable) {
-    (el as any)[prop.name] = newValue;
-  } else if (prop.name === "dangerouslySetInnerHTML") {
-    if (oldValue?.__html !== newValue.__html) {
-      el.innerHTML = newValue.__html;
-    }
-  } else {
-    el.setAttribute(prop.attrName, newValue);
+  switch (prop.type) {
+    case "property":
+      (el as any)[prop.name] = newValue;
+      break;
+    case "attribute":
+      el.setAttribute(prop.domName, newValue);
+      break;
+    case "event":
+      setEventListener(el, prop, newValue);
+      break;
+    case "html":
+      if (oldValue?.__html !== newValue.__html) {
+        el.innerHTML = newValue.__html;
+      }
+      break;
+    case "styles":
+      updateInlineStyles(el as HTMLElement, oldValue || {}, newValue);
+      break;
   }
 }
 

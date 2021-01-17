@@ -369,6 +369,18 @@ describe("DOM properties, attribute & event listeners", () => {
 
       assert.equal(container.innerHTML, "<div>Manually modified</div>");
     });
+
+    it("removes custom HTML", () => {
+      const container = scratch.render(
+        h("div", {
+          dangerouslySetInnerHTML: {
+            __html: "<span>Custom markup</span>",
+          },
+        })
+      );
+      scratch.render(h("div"));
+      assert.equal(container.innerHTML, "<div></div>");
+    });
   });
 
   describe("custom element properties", () => {
