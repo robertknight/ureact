@@ -242,10 +242,12 @@ class Root {
   }
 
   /**
-   * Render a list of VNodes.
+   * Render a list of VNodes that represent the children of a DOM VNode or the
+   * output of a custom component VNode.
    *
-   * This list can be the children of a DOM VNode or the output of a custom
-   * component VNode.
+   * Note that this modifies `prevOutput` as the new output is processed.
+   *
+   * Returns the new output for the component.
    */
   _diffList(
     parentComponent: Component | null,
@@ -255,34 +257,32 @@ class Root {
     insertAfter: Node | null
   ): Component[] {
     const newOutput = [];
-    const unmatchedOutput = new Set(prevOutput);
 
     if (vnodes) {
-      // Number of non-keyed children from the new vnode rendered so far.
-      let nonKeyedCount = -1;
-
       for (let child of flattenChildren(vnodes)) {
         // Find the child from the previous render that corresponds to this
         // child.
-        let prevComponent;
+        let prevComponentIndex;
         const childKey = vnodeKey(child);
         if (childKey !== null) {
-          prevComponent = prevOutput.find(
+          prevComponentIndex = prevOutput.findIndex(
             (o) => vnodeKey(o.vnode) === childKey
           );
         } else {
-          ++nonKeyedCount;
-          let nonKeyedIndex = -1;
-          prevComponent = prevOutput.find(
-            (o) =>
-              vnodeKey(o.vnode) === null && ++nonKeyedIndex === nonKeyedCount
+          prevComponentIndex = prevOutput.findIndex(
+            (o) => vnodeKey(o.vnode) === null
           );
         }
 
         // Diff the child against the previous matching output, if any.
+        const prevComponent =
+          prevComponentIndex !== -1 ? prevOutput[prevComponentIndex] : null;
         let childComponent;
         if (prevComponent) {
-          unmatchedOutput.delete(prevComponent);
+          // Remove the matched component from `prevOutput`, so that at the end
+          // we are left with a list of non-matched items.
+          prevOutput.splice(prevComponentIndex, 1);
+
           childComponent = this._diff(
             prevComponent,
             child,
@@ -293,22 +293,20 @@ class Root {
           childComponent = this._renderTree(parentComponent, child);
         }
 
+        // Ensure the output is in the correct position in the DOM.
         for (let node of topLevelDomNodes(childComponent)) {
           insertNodeAfter(node, parentElement, insertAfter);
           insertAfter = node;
         }
 
-        // Ensure the output is in the correct position in the DOM.
         newOutput.push(childComponent);
       }
     }
 
     // Remove all the output from the previous render which was not matched
     // against output from the new render.
-    for (let unmatched of unmatchedOutput) {
-      if (unmatched) {
-        this._unmount(unmatched);
-      }
+    for (let unmatched of prevOutput) {
+      this._unmount(unmatched);
     }
 
     return newOutput;
