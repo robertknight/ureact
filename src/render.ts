@@ -117,9 +117,9 @@ function isErrorBoundary(vnode: VNodeChild): vnode is ErrorBoundaryVNode {
 }
 
 /**
- * Return the top-level DOM nodes rendered by a component.
+ * Run a callback for each top-level DOM node rendered by a component.
  */
-export function forEachDomRoot(c: Component, visit: (node: DOMOutput) => void) {
+function forEachDomRoot(c: Component, visit: (node: DOMOutput) => void) {
   if (c.dom !== null) {
     visit(c.dom);
   } else if (c.domRoots !== null) {
