@@ -2,9 +2,36 @@ import chai from "chai";
 const { assert } = chai;
 
 import { elementSymbol } from "../build/jsx.js";
-import { createElement, isValidElement } from "../build/index.js";
+import { createElement, jsx, isValidElement } from "../build/index.js";
 
 describe("JSX", () => {
+  // `jsx` is the same as `createElement` except for the handling of `children`
+  // and `key`, so most functionality is covered by `createElement` tests below.
+  describe("jsx", () => {
+    it("extracts ref from props", () => {
+      const aRef = { current: null };
+      const vnode = jsx("div", { someProp: "someValue", ref: aRef });
+      assert.deepEqual(vnode, {
+        _tag: elementSymbol,
+        type: "div",
+        props: { someProp: "someValue" },
+        key: null,
+        ref: aRef,
+      });
+    });
+
+    it("sets key to `null` if missing", () => {
+      const vnode = jsx("div", { someProp: "someValue" });
+      assert.deepEqual(vnode, {
+        _tag: elementSymbol,
+        type: "div",
+        props: { someProp: "someValue" },
+        key: null,
+        ref: null,
+      });
+    });
+  });
+
   describe("createElement", () => {
     it("creates a DOM VNode", () => {
       const vnode = createElement("div", { someProp: "someValue" });

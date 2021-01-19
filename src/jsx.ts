@@ -30,7 +30,7 @@ export const elementSymbol = Symbol.for("ureactElement");
  * This is used by the "new" JSX transform. See
  * https://reactjs.org/blog/2020/09/22/introducing-the-new-jsx-transform.html.
  */
-export function jsx(type: NodeType, props: Props, key?: VNodeKey | null) {
+export function jsx(type: NodeType, props: Props, key: VNodeKey | null = null) {
   // nb. Here we assume it is safe to mutate `props`.
   const ref = props.ref ?? null;
   if (ref !== null) {
@@ -61,7 +61,7 @@ export function createElement(
   type: NodeType,
   props: Props = {},
   ...children: VNodeChildren[]
-) {
+): VNode {
   // nb. Here we assume it is safe to mutate `props`.
   const key = props.key ?? null;
   if (key !== null) {
