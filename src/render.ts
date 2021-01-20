@@ -184,7 +184,6 @@ class Root {
    */
   render(vnode: VNodeChild) {
     this._rootComponent = this._diff(
-      null,
       this._rootComponent,
       vnode,
       this.container,
@@ -215,7 +214,6 @@ class Root {
    * `parent` and `insertAfter` define where to insert the generated DOM nodes.
    */
   _diff(
-    parentComponent: Component | null,
     component: Component | null,
     vnode: VNodeChild,
     parent: Element,
@@ -279,7 +277,7 @@ class Root {
 
     // If there is no existing component or it has a different type, render it
     // from scratch.
-    const newComponent = this._renderTree(parentComponent ?? null, vnode);
+    const newComponent = this._renderTree(component?.parent ?? null, vnode);
     for (let node of topLevelDomNodes(newComponent)) {
       insertNodeAfter(node, parent, insertAfter);
       insertAfter = node;
@@ -308,17 +306,10 @@ class Root {
       for (let child of flattenChildren(vnodes)) {
         // Find the child from the previous render that corresponds to this
         // child.
-        let prevComponentIndex;
         const childKey = vnodeKey(child);
-        if (childKey !== null) {
-          prevComponentIndex = prevOutput.findIndex(
-            (o) => vnodeKey(o.vnode) === childKey
-          );
-        } else {
-          prevComponentIndex = prevOutput.findIndex(
-            (o) => vnodeKey(o.vnode) === null
-          );
-        }
+        const prevComponentIndex = prevOutput.findIndex(
+          (o) => vnodeKey(o.vnode) === childKey
+        );
 
         // Diff the child against the previous matching output, if any.
         const prevComponent =
@@ -330,7 +321,6 @@ class Root {
           prevOutput.splice(prevComponentIndex, 1);
 
           childComponent = this._diff(
-            parentComponent,
             prevComponent,
             child,
             parentElement,
@@ -562,13 +552,7 @@ class Root {
           parentDom = this.container;
         }
 
-        this._diff(
-          component.parent,
-          component,
-          component.vnode,
-          parentDom,
-          insertAfter
-        );
+        this._diff(component, component.vnode, parentDom, insertAfter);
       }
     }
 
