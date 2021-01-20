@@ -465,9 +465,7 @@ class Root {
   _scheduleEffects(component: Component, when: EffectTiming) {
     if (when === EffectTiming.afterRender) {
       const isScheduled = this._pendingEffects.size > 0;
-      if (!this._pendingEffects.has(component)) {
-        this._pendingEffects.add(component);
-      }
+      this._pendingEffects.add(component);
       if (!isScheduled) {
         // TODO - Use `requestAnimationFrame` or another method that will run
         // after rendering.
@@ -475,9 +473,7 @@ class Root {
       }
     } else {
       const isScheduled = this._pendingLayoutEffects.size > 0;
-      if (!this._pendingLayoutEffects.has(component)) {
-        this._pendingLayoutEffects.add(component);
-      }
+      this._pendingLayoutEffects.add(component);
       if (!isScheduled) {
         queueMicrotask(() => this._flushLayoutEffects());
       }
@@ -500,9 +496,7 @@ class Root {
 
   _scheduleUpdate(component: Component) {
     const isScheduled = this._pendingUpdate.size > 0;
-    if (!this._pendingUpdate.has(component)) {
-      this._pendingUpdate.add(component);
-    }
+    this._pendingUpdate.add(component);
     if (!isScheduled) {
       queueMicrotask(() => this._flushUpdates());
     }
