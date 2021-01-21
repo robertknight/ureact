@@ -93,11 +93,22 @@ function isErrorBoundary(vnode: VNodeChild): vnode is ErrorBoundaryVNode {
 /**
  * Return the top-level DOM nodes rendered by a component.
  */
-function topLevelDomNodes(c: Component): (Element | Text)[] {
+function forEachDomRoot(c: Component, visit: (node: Element | Text) => void) {
   if (c.dom) {
-    return [c.dom];
+    visit(c.dom);
+  } else {
+    for (let child of c.output) {
+      forEachDomRoot(child, visit);
+    }
   }
-  return c.output.flatMap(topLevelDomNodes);
+}
+
+function lastDomChild(c: Component): Element | Text | null {
+  let node = c.dom;
+  for (let i = c.output.length - 1; i >= 0 && !node; i--) {
+    node = lastDomChild(c.output[i]);
+  }
+  return node;
 }
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -278,10 +289,10 @@ class Root {
     // If there is no existing component or it has a different type, render it
     // from scratch.
     const newComponent = this._renderTree(component?.parent ?? null, vnode);
-    for (let node of topLevelDomNodes(newComponent)) {
+    forEachDomRoot(newComponent, (node) => {
       insertNodeAfter(node, parent, insertAfter);
       insertAfter = node;
-    }
+    });
     return newComponent;
   }
 
@@ -331,10 +342,10 @@ class Root {
         }
 
         // Ensure the output is in the correct position in the DOM.
-        for (let node of topLevelDomNodes(childComponent)) {
+        forEachDomRoot(childComponent, (node) => {
           insertNodeAfter(node, parentElement, insertAfter);
           insertAfter = node;
-        }
+        });
 
         newOutput.push(childComponent);
       }
@@ -387,9 +398,7 @@ class Root {
         for (let child of flattenChildren(vnode.props.children)) {
           const childComponent = this._renderTree(newComponent, child);
           newComponent.output.push(childComponent);
-          topLevelDomNodes(childComponent).forEach((node) =>
-            element.append(node)
-          );
+          forEachDomRoot(childComponent, (node) => element.append(node));
         }
       }
     } else if (typeof vnode.type === "function") {
@@ -522,12 +531,8 @@ class Root {
         let parent = component.parent;
         while (parent) {
           const siblingIndex = parent.output.indexOf(sibling);
-          for (let i = siblingIndex - 1; i >= 0; i--) {
-            const nodes = topLevelDomNodes(parent.output[i]);
-            if (nodes.length > 0) {
-              insertAfter = nodes[nodes.length - 1];
-              break;
-            }
+          for (let i = siblingIndex - 1; i >= 0 && !insertAfter; i--) {
+            insertAfter = lastDomChild(parent.output[i]);
           }
           if (insertAfter || parent.dom) {
             break;
@@ -590,7 +595,7 @@ class Root {
     }
 
     if (!isUnmountingAncestor) {
-      topLevelDomNodes(component).forEach((node) => node.remove());
+      forEachDomRoot(component, (node) => node.remove());
     }
   }
 }
