@@ -31,22 +31,17 @@ export class ContextProvider<T> {
 
 export function createContext<T>(defaultValue: T) {
   const contextType = {
-    Provider: (props: { children: any; value?: T }) => {
+    Provider: (props: { children: any; value: T }) => {
       const provider = useRef<ContextProvider<T> | null>(null);
       if (!provider.current) {
         provider.current = new ContextProvider(contextType, defaultValue);
         registerContext(provider.current);
       }
-
-      // Per React docs [1], the `value` prop is used if present, even if `undefined`.
-      // Otherwise `defautlValue` is used.
-      //
-      // [1] https://reactjs.org/docs/context.html#reactcreatecontext.
-      const currentValue = "value" in props ? props.value! : defaultValue;
-
-      provider.current.setValue(currentValue);
+      provider.current.setValue(props.value);
       return props.children;
     },
+
+    defaultValue,
   };
   return contextType;
 }

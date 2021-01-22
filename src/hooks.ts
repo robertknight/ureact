@@ -37,7 +37,7 @@ interface EffectHook {
 
 interface ContextHook<T> {
   type: "context";
-  provider: ContextProvider<T>;
+  provider: { value: T };
   unsubscribe: () => void;
 }
 
@@ -59,7 +59,7 @@ export interface Component {
   scheduleEffects(when: EffectTiming): void;
 
   /** Get the nearest provider of context of a given type for this component. */
-  getContext<T>(type: any): ContextProvider<T>;
+  getContext<T>(type: any): ContextProvider<T> | null;
 
   /** Register this component as a provider of context. */
   registerContext<T>(provider: ContextProvider<T>): void;
@@ -191,10 +191,15 @@ export class HookState {
     let hook = this._nextHook<ContextHook<T>>("context");
     if (!hook) {
       const provider = this._component.getContext<T>(type);
-      const listener = () => this._component.scheduleUpdate();
-      const unsubscribe = () => provider.unsubscribe(listener);
-      hook = { type: "context", provider, unsubscribe };
-      provider.subscribe(listener);
+      if (provider) {
+        const listener = () => this._component.scheduleUpdate();
+        const unsubscribe = () => provider.unsubscribe(listener);
+        hook = { type: "context", provider, unsubscribe };
+        provider.subscribe(listener);
+      } else {
+        const provider = { value: type.defaultValue };
+        hook = { type: "context", provider, unsubscribe: () => {} };
+      }
       this._hooks.push(hook);
     }
     return hook.provider.value;

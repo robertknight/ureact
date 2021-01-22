@@ -3,6 +3,7 @@ import sinon from "sinon";
 const { assert } = chai;
 
 import {
+  Fragment,
   createElement as h,
   render,
   createContext,
@@ -37,11 +38,12 @@ describe("context", () => {
     // normal re-rendering. This enforces that the consumer must trigger an
     // update of itself.
     const consumer = useMemo(() => h(Consumer), []);
-    const providerProps = {};
+
     if ("value" in props) {
-      providerProps.value = value;
+      return h(context.Provider, { value }, renderConsumer && consumer);
+    } else {
+      return h(Fragment, {}, renderConsumer && consumer);
     }
-    return h(context.Provider, providerProps, renderConsumer && consumer);
   };
 
   it("passes default value down to children", () => {
@@ -91,8 +93,8 @@ describe("context", () => {
   });
 
   it("passes correct context to components when there are multiple providers in the tree", () => {
-    const contextA = createContext("a");
-    const contextB = createContext("b");
+    const contextA = createContext(null);
+    const contextB = createContext(null);
 
     const Consumer = () => {
       const valueA = useContext(contextA);
@@ -102,7 +104,11 @@ describe("context", () => {
     };
 
     const container = scratch.render(
-      h(contextA.Provider, {}, h(contextB.Provider, {}, h(Consumer)))
+      h(
+        contextA.Provider,
+        { value: "a" },
+        h(contextB.Provider, { value: "b" }, h(Consumer))
+      )
     );
 
     assert.equal(container.innerHTML, "<div>a b</div>");

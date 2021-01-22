@@ -419,7 +419,7 @@ class Root {
       }
       parent = parent.parent;
     }
-    throw new Error("No provider available for context type");
+    return null;
   }
 
   _renderCustom(vnode: VNode, component: Component) {
