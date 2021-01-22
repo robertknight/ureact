@@ -132,4 +132,30 @@ describe("context", () => {
 
     assert.equal(container.innerHTML, "<div>second</div>");
   });
+
+  [false, "some-text", h("div"), null].forEach((initialChild, i) => {
+    it(`allows components rendered after an update to read context (${i})`, () => {
+      const context = createContext("default");
+
+      const Consumer = () => {
+        const value = useContext(context);
+        return h("div", {}, value);
+      };
+
+      // Render tree initially without the consumer present but some other
+      // child or no child.
+      let initialVNode;
+      if (initialChild !== null) {
+        initialVNode = h(context.Provider, { value: "data" }, initialChild);
+      } else {
+        initialVNode = h(context.Provider, { value: "data" });
+      }
+      const container = scratch.render(initialVNode);
+
+      // Re-render the tree with the consumer present.
+      scratch.render(h(context.Provider, { value: "data" }, h(Consumer)));
+
+      assert.equal(container.innerHTML, "<div>data</div>");
+    });
+  });
 });

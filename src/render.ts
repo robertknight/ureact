@@ -195,6 +195,7 @@ class Root {
    */
   render(vnode: VNodeChild) {
     this._rootComponent = this._diff(
+      null,
       this._rootComponent,
       vnode,
       this.container,
@@ -225,6 +226,7 @@ class Root {
    * `parent` and `insertAfter` define where to insert the generated DOM nodes.
    */
   _diff(
+    parentComponent: Component | null,
     component: Component | null,
     vnode: VNodeChild,
     parent: Element,
@@ -288,7 +290,7 @@ class Root {
 
     // If there is no existing component or it has a different type, render it
     // from scratch.
-    const newComponent = this._renderTree(component?.parent ?? null, vnode);
+    const newComponent = this._renderTree(parentComponent ?? null, vnode);
     forEachDomRoot(newComponent, (node) => {
       insertNodeAfter(node, parent, insertAfter);
       insertAfter = node;
@@ -332,6 +334,7 @@ class Root {
           prevOutput.splice(prevComponentIndex, 1);
 
           childComponent = this._diff(
+            parentComponent,
             prevComponent,
             child,
             parentElement,
@@ -551,7 +554,13 @@ class Root {
           parentDom = this.container;
         }
 
-        this._diff(component, component.vnode, parentDom, insertAfter);
+        this._diff(
+          component.parent,
+          component,
+          component.vnode,
+          parentDom,
+          insertAfter
+        );
       }
     }
 
