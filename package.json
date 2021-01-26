@@ -8,6 +8,7 @@
   "author": "Robert Knight <robertknight@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "c8": "^7.4.0",
     "chai": "^4.2.0",
     "jsdom": "^16.4.0",
     "mocha": "^8.2.1",
@@ -22,7 +23,7 @@
     "package": "rollup -c",
     "checkformatting": "prettier --check **/*.{js,ts}",
     "format": "prettier --list-different --write **/*.{js,ts}",
-    "test": "mocha"
+    "test": "c8 mocha"
   },
   "files": [
     "dist/**"
