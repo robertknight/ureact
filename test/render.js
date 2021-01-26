@@ -259,6 +259,12 @@ describe("rendering", () => {
       assert.deepEqual(textNodes, newTextNodes);
     });
 
+    it("does nothing to empty nodes", () => {
+      const container = scratch.render(h("div", {}, false, "Hello", false));
+      scratch.render(h("div", {}, false, "Hello", false));
+      assert.deepEqual(container.innerHTML, "<div>Hello</div>");
+    });
+
     it("updates unkeyed children", () => {
       const container = scratch.render(
         h(
@@ -705,6 +711,56 @@ describe("rendering", () => {
         container.innerHTML,
         "<button>11</button><button>11</button>"
       );
+    });
+
+    it("only re-renders a child once if both it and a parent have a pending state update", () => {
+      let childRenderCount = 0;
+      const Child = () => {
+        ++childRenderCount;
+        const [count, setCount] = useState(0);
+        const onClick = () => setCount((c) => c + 1);
+
+        return h("button", { id: "child", onClick }, count);
+      };
+
+      let parentRenderCount = 0;
+      const Parent = () => {
+        ++parentRenderCount;
+        const [count, setCount] = useState(0);
+        const onClick = () => setCount((c) => c + 1);
+
+        return h(
+          "div",
+          {},
+          h("button", { id: "parent", onClick }, count),
+          h(Child)
+        );
+      };
+
+      const container = scratch.render(h(Parent));
+      assert.equal(
+        container.innerHTML,
+        '<div><button id="parent">0</button><button id="child">0</button></div>'
+      );
+      assert.equal(parentRenderCount, 1);
+      assert.equal(childRenderCount, 1);
+
+      // Trigger a state update in both the child and the parent. When state
+      // updates are flushed the parent should be re-rendered first since it
+      // is nearer to the root of the tree. This should re-render the child and
+      // remove it from the set of components to re-render. As a result, both
+      // the parent and child should only be re-rendered once.
+      act(() => {
+        container.querySelector("#child").click();
+        container.querySelector("#parent").click();
+      });
+
+      assert.equal(
+        container.innerHTML,
+        '<div><button id="parent">1</button><button id="child">1</button></div>'
+      );
+      assert.equal(parentRenderCount, 2);
+      assert.equal(childRenderCount, 2);
     });
   });
 

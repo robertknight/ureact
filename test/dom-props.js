@@ -127,7 +127,7 @@ describe("DOM properties, attribute & event listeners", () => {
       assert.equal(child.href, "https://foobar.com/");
     });
 
-    it("removes properties that are no longer present", () => {
+    it("removes a generic element property that is no longer present", () => {
       const container = scratch.render(
         h("a", { href: "https://example.org/", tabIndex: 42 })
       );
@@ -138,6 +138,19 @@ describe("DOM properties, attribute & event listeners", () => {
       scratch.render(h("a", { href: "https://foobar.com/" }));
 
       assert.equal(child.tabIndex, 0);
+    });
+
+    it("removes an element type-specific property that is no longer present", () => {
+      const container = scratch.render(
+        h("a", { href: "https://example.org/", tabIndex: 42 })
+      );
+      const child = container.firstChild;
+
+      assert.equal(child.href, "https://example.org/");
+
+      scratch.render(h("a", { tabIndex: 42 }));
+
+      assert.equal(child.href, "");
     });
 
     it("does not modify properties that did not change", () => {
@@ -325,6 +338,20 @@ describe("DOM properties, attribute & event listeners", () => {
 
       // Properties that should not be set to pixel values.
       assert.equal(style.flexGrow, "1");
+    });
+
+    it("updates inline style properties with pixel values", () => {
+      const container = scratch.render(
+        h("div", {
+          style: { top: 5, flexGrow: 1 },
+        })
+      );
+
+      scratch.render(h("div", { style: { top: 10, flexGrow: 2 } }));
+
+      const style = container.firstChild.style;
+      assert.equal(style.top, "10px");
+      assert.equal(style.flexGrow, "2");
     });
 
     it("updates custom HTML", () => {
