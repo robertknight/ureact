@@ -112,5 +112,41 @@ describe("test-utils", () => {
       });
       assert.equal(container.innerHTML, "<button>1</button>");
     });
+
+    const testActWorks = () => {
+      const Widget = () => {
+        const [count, setCount] = useState(0);
+        return h("button", { onClick: () => setCount((c) => c + 1) }, count);
+      };
+      const container = scratch.render(h(Widget));
+      act(() => {
+        container.querySelector("button").click();
+      });
+      assert.equal(container.innerHTML, "<button>1</button>");
+    };
+
+    it("flushes updates if previous `act` callback threw an exception", () => {
+      try {
+        act(() => {
+          throw new Error("Something went wrong");
+        });
+      } catch {
+        // Ignored
+      }
+
+      testActWorks();
+    });
+
+    it("flushes updates if previous `act` callback rejected", async () => {
+      try {
+        await act(async () => {
+          throw new Error("Something went wrong asynchronously");
+        });
+      } catch {
+        // Ignored
+      }
+
+      testActWorks();
+    });
   });
 });

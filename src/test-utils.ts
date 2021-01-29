@@ -18,10 +18,16 @@ export function act(
 ): void | Promise<void> {
   ++actDepth;
 
-  const result = callback();
+  let result;
+  try {
+    result = callback();
+  } catch (err) {
+    --actDepth;
+    throw err;
+  }
 
   if (result != null && typeof result.then === "function") {
-    return result.then(() => {
+    return result.finally(() => {
       --actDepth;
       flushAllRoots();
     });
