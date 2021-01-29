@@ -467,6 +467,12 @@ describe("rendering", () => {
       assert.equal(container.innerHTML, "Hello world");
     });
 
+    it("renders a custom component that returns a nested array", () => {
+      const ArrayComponent = () => [["Hello "], [["world"], null]];
+      const container = scratch.render(h(ArrayComponent));
+      assert.equal(container.innerHTML, "Hello world");
+    });
+
     it("renders a custom component with children", () => {
       function Button({ children }) {
         return h("button", {}, children);

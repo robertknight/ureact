@@ -428,9 +428,9 @@ class Root {
       }
     } else if (typeof vnode.type === "function") {
       const result = this._renderCustom(vnode, newComponent);
-      newComponent.output = Array.isArray(result)
-        ? result.map((r) => this._renderTree(newComponent, r))
-        : [this._renderTree(newComponent, result)];
+      for (let child of flattenChildren(result)) {
+        newComponent.output.push(this._renderTree(newComponent, child));
+      }
     }
 
     return newComponent;

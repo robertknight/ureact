@@ -95,7 +95,8 @@ export function flattenChildren(children: VNodeChildren): VNodeChild[] {
   if (children.every((c) => !Array.isArray(c))) {
     return children as VNodeChild[];
   }
-  return children.flat() as VNodeChild[];
+  const maxDepth = 256;
+  return children.flat(maxDepth) as VNodeChild[];
 }
 
 /**
