@@ -589,6 +589,21 @@ describe("Enzyme testing API", () => {
       });
     });
 
+    describe("#isEmptyRender", () => {
+      it("returns true if no concrete output was produced", () => {
+        const Empty = () => null;
+        const Element = () => h("div");
+        const Text = () => "test";
+        const NestedEmpty = () => h(Empty);
+
+        assert.isTrue(mount(h(Empty)).isEmptyRender());
+        assert.isTrue(mount(h(NestedEmpty)).isEmptyRender());
+
+        assert.isFalse(mount(h(Element)).isEmptyRender());
+        assert.isFalse(mount(h(Text)).isEmptyRender());
+      });
+    });
+
     describe("#key", () => {
       it("returns the component's key", () => {
         const wrapper = mount(h("li", { key: "abc" }));

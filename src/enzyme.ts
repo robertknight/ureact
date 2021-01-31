@@ -640,6 +640,10 @@ class Wrapper {
     return this.getDOMNode();
   }
 
+  isEmptyRender() {
+    return this.html() === "";
+  }
+
   key() {
     const c = this._singleComponent("key");
     if (!isValidElement(c.vnode)) {
