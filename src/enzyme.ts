@@ -3,6 +3,7 @@ import {
   VNode,
   VNodeChild,
   createElement,
+  flattenChildren,
   isEmptyVNode,
   isTextVNode,
   isValidElement,
@@ -450,8 +451,8 @@ function propsEqual(a: VNode, b: VNode) {
 }
 
 function vnodesMatch(a: VNodeChild, b: VNodeChild) {
-  if (a === b) {
-    return true;
+  if (isTextVNode(a) && isTextVNode(b)) {
+    return a.toString() === b.toString();
   } else if (isValidElement(a) && isValidElement(b)) {
     return a.type === b.type && propsEqual(a, b);
   } else {
@@ -459,26 +460,27 @@ function vnodesMatch(a: VNodeChild, b: VNodeChild) {
   }
 }
 
-function treeContains(c: BaseComponent, vnode: VNodeChild): boolean {
-  if (vnodesMatch(c.vnode, vnode)) {
-    if (!isValidElement(vnode)) {
-      return true;
-    }
-
-    const children = Array.isArray(vnode.props.children)
-      ? vnode.props.children
-      : [vnode.props.children];
-    if (
-      c.output.length === children.length &&
-      c.output.every((child, i) =>
-        treeContains(child, children[i] as VNodeChild)
-      )
-    ) {
-      return true;
-    }
+function treeMatches(c: BaseComponent, vnode: VNodeChild): boolean {
+  if (!vnodesMatch(c.vnode, vnode)) {
+    return false;
   }
+  if (!isValidElement(vnode)) {
+    return true;
+  }
+  const children = flattenChildren(vnode.props.children).filter(
+    (child) => !isEmptyVNode(child)
+  );
+  return (
+    c.output.length === children.length &&
+    c.output.every((child, i) => treeMatches(child, children[i] as VNodeChild))
+  );
+}
 
-  return c.output.some((child) => treeContains(child, vnode));
+function treeContains(c: BaseComponent, vnode: VNodeChild): boolean {
+  return (
+    treeMatches(c, vnode) ||
+    c.output.some((child) => treeContains(child, vnode))
+  );
 }
 
 function unique<T>(array: T[]): T[] {
