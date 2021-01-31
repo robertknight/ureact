@@ -13,18 +13,16 @@ import { EffectTiming, HookState, setHookState } from "./hooks.js";
 import { diffElementProps } from "./dom-props.js";
 
 /**
- * Backing tree for a rendered vnode.
+ * Backing object for a rendered vnode.
+ *
+ * This tracks the last vnode that was rendered, the children (for a DOM component)
+ * or output (for a custom component) and the DOM node.
+ *
+ * `BaseComponent` contains only the basic structure of the rendered tree.
+ * It does not include information about internal state of components or pre-computed
+ * pointers/flags etc. that are used internally by the renderer.
  */
-interface Component {
-  /**
-   * The parent component. This is not set on the root component or the
-   * empty component.
-   */
-  parent: Component | null;
-
-  /** The depth of the component from the root. Not set on the empty component. */
-  depth: number;
-
+export interface BaseComponent {
   /** The vnode that produced this component. */
   vnode: VNodeChild;
 
@@ -43,6 +41,20 @@ interface Component {
    * DOM node produced by rendering `vnode`.
    */
   dom: Element | Text | null;
+}
+
+/**
+ * Backing tree for a rendered vnode.
+ */
+interface Component extends BaseComponent {
+  /**
+   * The parent component. This is not set on the root component or the
+   * empty component.
+   */
+  parent: Component | null;
+
+  /** The depth of the component from the root. Not set on the empty component. */
+  depth: number;
 
   /**
    * Lazily-allocated hook data for component. This is only set for components
@@ -50,6 +62,9 @@ interface Component {
    */
   hooks: HookState | null;
 
+  /**
+   * The context data that this component exposes to its descendants.
+   */
   contextProvider: ContextProvider<any> | null;
 
   /** Whether this component is an `<svg>` DOM component or a child of one. */
@@ -93,7 +108,10 @@ function isErrorBoundary(vnode: VNodeChild): vnode is ErrorBoundaryVNode {
 /**
  * Return the top-level DOM nodes rendered by a component.
  */
-function forEachDomRoot(c: Component, visit: (node: Element | Text) => void) {
+export function forEachDomRoot(
+  c: BaseComponent,
+  visit: (node: Element | Text) => void
+) {
   if (c.dom) {
     visit(c.dom);
   } else {
@@ -218,6 +236,10 @@ class Root {
       this._flushLayoutEffects();
       this._flushEffects();
     }
+  }
+
+  getOutput(): BaseComponent | null {
+    return this._rootComponent;
   }
 
   /**
@@ -621,6 +643,24 @@ export function getRoots() {
 export function render(vnode: VNodeChild, container: Element) {
   const root = activeRoots.get(container) ?? new Root(container);
   root.render(vnode);
+}
+
+export function getRenderedOutput(container: Element): BaseComponent | null {
+  const root = activeRoots.get(container);
+  if (!root) {
+    return null;
+  }
+  return root.getOutput();
+}
+
+/**
+ * Flush pending state updates and effects in a specific root.
+ */
+export function flushRoot(container: Element) {
+  const root = activeRoots.get(container);
+  if (root) {
+    root.flush();
+  }
 }
 
 /**
