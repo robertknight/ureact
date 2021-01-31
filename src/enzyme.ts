@@ -138,6 +138,20 @@ interface SimpleSelector {
   element: string | null;
   classList: string[];
   attributes: { [attr: string]: string };
+  pseudos: PseudoSelector[];
+}
+
+/**
+ * Selector that matches a pseudo-class.
+ *
+ * Currently only `:not(<selector>)` is supported.
+ *
+ * See https://developer.mozilla.org/en-US/docs/Web/CSS/Pseudo-classes for the full
+ * list of selectors.
+ */
+interface PseudoSelector {
+  func: "not";
+  arg: SimpleSelector;
 }
 
 type Combinator = " " | ">";
@@ -168,7 +182,7 @@ interface PropsSelector {
 function tokenizeSelector(selector: string): TokenList {
   // Match <Identifier> | <Quoted string> | <Whitespace> | <Special char>.
   const tokenStrings = selector.match(
-    /[A-Za-z0-9_-]+|"[^"]+"|\s+|[\[\].,=#>]/g
+    /[A-Za-z0-9_-]+|"[^"]+"|\s+|[\[\].,=#>:()]/g
   );
   if (!tokenStrings) {
     throw new Error("Invalid selector");
@@ -238,11 +252,27 @@ function parseSimpleSelector(tokens: TokenList): SimpleSelector {
     tokens.consume("]");
   }
 
+  // Parse pseudo-selector.
+  const pseudos = [] as PseudoSelector[];
+  while (tokens.maybeConsume(":")) {
+    const func = tokens.consume(idRegex);
+    if (func !== "not") {
+      throw new Error(`Unsupport pseudo-selector :${func}`);
+    }
+    tokens.consume("(");
+    pseudos.push({
+      func,
+      arg: parseSimpleSelector(tokens),
+    });
+    tokens.consume(")");
+  }
+
   return {
     type: "simple",
     element,
     classList,
     attributes,
+    pseudos,
   };
 }
 
@@ -280,6 +310,16 @@ function matchSimpleSelector(
     !Object.keys(attrs).every((key) => attrs[key] === String(vnode.props[key]))
   ) {
     matches = false;
+  }
+
+  // Match pseudo selectors.
+  for (let pseudo of selector.pseudos) {
+    if (pseudo.func === "not") {
+      matches =
+        matches &&
+        matchSimpleSelector(pseudo.arg, c, [], false /* matchChildren */)
+          .length === 0;
+    }
   }
 
   if (matches) {
