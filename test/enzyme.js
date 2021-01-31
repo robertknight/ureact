@@ -136,6 +136,17 @@ describe("Enzyme testing API", () => {
       assert.isFalse(wrapper.exists("[foo=one,bar=one]"));
       assert.isFalse(wrapper.exists("[foo=two,bar=two]"));
     });
+
+    it("matches :not pseudo-selector", () => {
+      const wrapper = mount(h("div", { className: "foo" }));
+      assert.isTrue(wrapper.exists("div:not(.bar)"));
+      assert.isTrue(wrapper.exists(":not(.bar)"));
+      assert.isTrue(wrapper.exists("div:not(.bar):not(.baz)"));
+
+      assert.isFalse(wrapper.exists("div:not(.foo)"));
+      assert.isFalse(wrapper.exists(":not(.foo)"));
+      assert.isFalse(wrapper.exists("div:not(.bar):not(.foo)"));
+    });
   });
 
   describe("combinator selector matching", () => {
@@ -224,14 +235,16 @@ describe("Enzyme testing API", () => {
   });
 
   describe("invalid selector handling", () => {
-    ["^", "x + y", "", "{ div }", null, true, 42].forEach((selector) => {
-      it(`throws an error for invalid selector "${selector}"`, () => {
-        const wrapper = mount(h("div"));
-        assert.throws(() => {
-          wrapper.exists(selector);
-        }, /Invalid|Expected/);
-      });
-    });
+    ["^", "x + y", "", "{ div }", ":unsupported", null, true, 42].forEach(
+      (selector) => {
+        it(`throws an error for invalid selector "${selector}"`, () => {
+          const wrapper = mount(h("div"));
+          assert.throws(() => {
+            wrapper.exists(selector);
+          }, /Invalid|Expected/);
+        });
+      }
+    );
 
     it("includes selector text in error if string selector cannot be parsed", () => {
       const wrapper = mount(h("div"));
