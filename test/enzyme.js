@@ -313,6 +313,19 @@ describe("Enzyme testing API", () => {
         );
       });
 
+      it("ignores empty nodes in rendered tree", () => {
+        const wrapper = mount(
+          h("div", {}, null, "Hello", false, true, "World")
+        );
+        assert.isTrue(wrapper.contains(h("div", {}, "Hello", "World")));
+      });
+
+      it("compares numbers as strings", () => {
+        const wrapper = mount(h("div", {}, 42));
+        assert.isTrue(wrapper.contains(h("div", {}, "42")));
+        assert.isFalse(wrapper.contains(h("div", {}, "52")));
+      });
+
       it("returns false if there are extra attributes", () => {
         const wrapper = createWrapper();
         assert.isFalse(
