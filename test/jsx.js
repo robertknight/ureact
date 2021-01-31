@@ -30,6 +30,17 @@ describe("JSX", () => {
         ref: null,
       });
     });
+
+    it("removes `__source` and `__self` props", () => {
+      const vnode = jsx("div", { __source: "the-source", __self: "the-self" });
+      assert.deepEqual(vnode, {
+        _tag: elementSymbol,
+        type: "div",
+        props: {},
+        key: null,
+        ref: null,
+      });
+    });
   });
 
   describe("createElement", () => {

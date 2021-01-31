@@ -37,6 +37,9 @@ export function jsx(type: NodeType, props: Props, key: VNodeKey | null = null) {
     delete props.ref;
   }
 
+  delete props.__source;
+  delete props.__self;
+
   return {
     // `_tag` is a non-serializable property used to indicate that the object was
     // created by the `jsx` or `createElement` functions. This prevents objects
