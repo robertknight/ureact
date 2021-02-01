@@ -306,22 +306,10 @@ class Root {
         if (typeof vnode.type === "string") {
           const el = component.dom as Element;
           diffElementProps(el, prevVnode.props, vnode.props);
-          component.output = this._diffOutput(
-            component,
-            component.output,
-            vnode.props.children ?? null,
-            el,
-            null
-          );
+          this._diffOutput(component, vnode.props.children ?? null, el, null);
         } else if (typeof vnode.type === "function") {
           const output = this._renderCustom(vnode, component);
-          component.output = this._diffOutput(
-            component,
-            component.output,
-            output,
-            parent,
-            insertAfter
-          );
+          this._diffOutput(component, output, parent, insertAfter);
         }
         typeMatched = true;
       }
@@ -351,18 +339,14 @@ class Root {
    *
    * The output of a DOM component is just the component's children. The output
    * of a custom component is the result of calling it with the current props.
-   *
-   * Note that `prevOutput` is modified as the new output is processed.
-   *
-   * Returns the new output for the component.
    */
   _diffOutput(
-    parentComponent: Component | null,
-    prevOutput: Component[],
+    component: Component,
     vnodes: VNodeChildren,
     parentElement: Element,
     insertAfter: Node | null
-  ): Component[] {
+  ) {
+    const prevOutput = component.output;
     const newOutput = [];
 
     if (vnodes) {
@@ -384,14 +368,14 @@ class Root {
           prevOutput.splice(prevComponentIndex, 1);
 
           childComponent = this._diff(
-            parentComponent,
+            component,
             prevComponent,
             child,
             parentElement,
             insertAfter
           );
         } else {
-          childComponent = this._renderTree(parentComponent, child);
+          childComponent = this._renderTree(component, child);
         }
 
         // Ensure the output is in the correct position in the DOM.
@@ -410,7 +394,7 @@ class Root {
       this._unmount(unmatched);
     }
 
-    return newOutput;
+    component.output = newOutput;
   }
 
   /**
