@@ -280,7 +280,7 @@ class Root {
         if (typeof vnode.type === "string") {
           const el = component.dom as Element;
           diffElementProps(el, prevVnode.props, vnode.props);
-          component.output = this._diffList(
+          component.output = this._diffOutput(
             component,
             component.output,
             vnode.props.children ?? null,
@@ -288,11 +288,11 @@ class Root {
             null
           );
         } else if (typeof vnode.type === "function") {
-          const result = this._renderCustom(vnode, component);
-          component.output = this._diffList(
+          const output = this._renderCustom(vnode, component);
+          component.output = this._diffOutput(
             component,
             component.output,
-            result,
+            output,
             parent,
             insertAfter
           );
@@ -321,14 +321,16 @@ class Root {
   }
 
   /**
-   * Render a list of VNodes that represent the children of a DOM VNode or the
-   * output of a custom component VNode.
+   * Update the output of a component to match `vnodes`.
    *
-   * Note that this modifies `prevOutput` as the new output is processed.
+   * The output of a DOM component is just the component's children. The output
+   * of a custom component is the result of calling it with the current props.
+   *
+   * Note that `prevOutput` is modified as the new output is processed.
    *
    * Returns the new output for the component.
    */
-  _diffList(
+  _diffOutput(
     parentComponent: Component | null,
     prevOutput: Component[],
     vnodes: VNodeChildren,
@@ -427,8 +429,8 @@ class Root {
         }
       }
     } else if (typeof vnode.type === "function") {
-      const result = this._renderCustom(vnode, newComponent);
-      for (let child of flattenChildren(result)) {
+      const output = this._renderCustom(vnode, newComponent);
+      for (let child of flattenChildren(output)) {
         newComponent.output.push(this._renderTree(newComponent, child));
       }
     }
@@ -454,18 +456,18 @@ class Root {
     this._rendering.hooks?.resetIndex();
     setHookState(this._getHookState);
 
-    let result;
+    let output;
     try {
-      result = (vnode.type as Function).call(null, vnode.props);
+      output = (vnode.type as Function).call(null, vnode.props);
     } catch (err) {
-      result = null;
+      output = null;
       this._invokeErrorHandler(component, err);
     }
 
     this._rendering = null;
     setHookState(null);
 
-    return result;
+    return output;
   }
 
   _invokeErrorHandler(context: Component, error: Error) {
