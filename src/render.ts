@@ -160,15 +160,34 @@ function insertNodeAfter(node: Node, parent: Element, after: Node | null) {
  * for the first time.
  */
 class Root {
+  /** The DOM element into which this root renders. */
   container: Element;
 
+  /** The root component produced by the most recent render. */
   private _rootComponent: Component | null;
+
+  /** The DOM `Document` to which `container` belongs. */
   private _document: Document;
+
+  /** Components which have pending effects that need to be executed. */
   private _pendingEffects: Set<Component>;
+
+  /** Components which have pending layout effects that need to be executed. */
   private _pendingLayoutEffects: Set<Component>;
+
+  /** Components that need to be re-rendered due to state updates. */
   private _pendingUpdate: Set<Component>;
+
+  /**
+   * Error thrown during the current render or other invocation of user code
+   * which has not yet been handled.
+   */
   private _currentError: RenderError | null;
+
+  /** Component which is currently being rendered. */
   private _rendering: Component | null;
+
+  /** Create or return the hook data for the currently-rendering component. */
   private _getHookState: () => HookState;
 
   /**
@@ -203,13 +222,18 @@ class Root {
     activeRoots.set(container, this);
   }
 
+  /**
+   * Remove all of the rendered DOM nodes from the current tree and run any
+   * cleanup associated with components (eg. effect cleanup callbacks).
+   */
   unmount() {
     this.render(null);
     activeRoots.delete(this.container);
   }
 
   /**
-   * Render a VNode into the container element.
+   * Update the component tree rendered into this root's container to match
+   * `vnode`.
    */
   render(vnode: VNodeChild) {
     this._rootComponent = this._diff(
@@ -243,9 +267,11 @@ class Root {
   }
 
   /**
-   * Render a single VNode
+   * Create or update a component to match a `vnode`.
    *
-   * `parent` and `insertAfter` define where to insert the generated DOM nodes.
+   * `component` is the existing component to update or `null` if there is no
+   * such component. `vnode` is the new vnode value. `parent` and `insertAfter`
+   * specify where to insert any new DOM nodes created in the process.
    */
   _diff(
     parentComponent: Component | null,
@@ -388,7 +414,7 @@ class Root {
   }
 
   /**
-   * Render a component tree beginning at `vnode`.
+   * Render a new component tree described by `vnode`.
    */
   _renderTree(parent: Component | null, vnode: VNodeChild): Component {
     if (isEmptyVNode(vnode)) {
@@ -438,6 +464,9 @@ class Root {
     return newComponent;
   }
 
+  /**
+   * Return the ancestor of `component` which provides context of a given `type`.
+   */
   _getContext(component: Component, type: any) {
     let parent = component.parent;
     while (parent) {
@@ -637,6 +666,9 @@ class Root {
   }
 }
 
+/**
+ * Return all the `Root`s for currently mounted component trees.
+ */
 export function getRoots() {
   return activeRoots.values();
 }
@@ -651,6 +683,10 @@ export function render(vnode: VNodeChild, container: Element) {
   root.render(vnode);
 }
 
+/**
+ * Return a `BaseComponent` tree describing the currently rendered content
+ * inside a container element.
+ */
 export function getRenderedOutput(container: Element): BaseComponent | null {
   const root = activeRoots.get(container);
   if (!root) {
