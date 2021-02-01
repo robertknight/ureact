@@ -612,8 +612,12 @@ class Root {
         this._unmount(child, true);
       }
 
-      if (component.vnode.ref) {
-        component.vnode.ref.current = null;
+      // Clear component ref. We only do this if the ref refers to the DOM element
+      // being removed in case the same ref has been used for a new component mounted
+      // in place of this one.
+      const ref = component.vnode.ref;
+      if (ref && ref.current === component.dom) {
+        ref.current = null;
       }
 
       // Run cleanup that only applies to custom components.

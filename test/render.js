@@ -92,6 +92,25 @@ describe("rendering", () => {
       scratch.render(h(null));
       assert.equal(ref.current, null);
     });
+
+    it("updates `ref` when DOM component changes between renders", () => {
+      const ref = {};
+
+      const container = scratch.render(
+        h("ul", {}, h("li", { ref, key: "foo" }))
+      );
+      assert.ok(ref.current);
+      const firstEl = ref.current;
+
+      // Re-render using a different key for the `<li>`. This will force
+      // removal of the old `<li>` and replacement with a new one which has
+      // a different identity.
+      scratch.render(h("ul", {}, h("li", { ref, key: "bar" })));
+
+      assert.ok(ref.current);
+      assert.notEqual(ref.current, firstEl);
+      assert.equal(ref.current, container.querySelector("li"));
+    });
   });
 
   // Tests for DOM element creation. Detailed tests for handling of custom
