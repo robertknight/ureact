@@ -525,7 +525,7 @@ class Root {
 
     if (task === TASK_RUN_LAYOUT_EFFECTS || task === TASK_RUN_EFFECTS) {
       for (let component of queue) {
-        component.hooks!.runEffects(task);
+        component.hooks!.run(task);
       }
       queue.clear();
       return;

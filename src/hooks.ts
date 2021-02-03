@@ -20,17 +20,20 @@ interface StateHook<S> {
   type: "state";
   value: S;
   setter: (newState: S) => void;
+  cleanup: null;
 }
 
 interface RefHook<T> {
   type: "ref";
   current: T;
+  cleanup: null;
 }
 
 interface MemoHook<T> {
   type: "memo";
   result: T;
   deps: any[];
+  cleanup: null;
 }
 
 type EffectCleanup = (() => void) | void;
@@ -46,7 +49,7 @@ interface EffectHook {
 interface ContextHook<T> {
   type: "context";
   provider: { value: T };
-  unsubscribe: () => void;
+  cleanup: (() => void) | null;
 }
 
 type Hook =
@@ -74,18 +77,33 @@ function depsEqual(a: any[], b: any[]) {
   return a.length === b.length && a.every((v, i) => b[i] === v);
 }
 
+/**
+ * Context object for hooks.
+ *
+ * Each component that uses hooks will have a `HookState` object that maintains
+ * the state of the hooks and provides functions that can be used to trigger
+ * updates in the renderer.
+ */
 export class HookState {
   private _index: number;
   private _hooks: Hook[];
-  private _component;
 
-  constructor(component: Component) {
+  registerContext: (provider: any) => any;
+  getContext: (provider: any) => any;
+  schedule: (task: Task) => void;
+
+  constructor({ getContext, registerContext, schedule }: Component) {
     this._index = -1;
     this._hooks = [];
-    this._component = component;
+    this.registerContext = registerContext;
+    this.getContext = getContext;
+    this.schedule = schedule;
   }
 
-  _nextHook<T extends Hook>(type: string) {
+  /**
+   * Get the next hook and assert that if it already exists, is of the expected `type`.
+   */
+  nextHook<T extends Hook>(type: string) {
     ++this._index;
     const hook = this._hooks[this._index] as T | undefined;
     if (hook && hook.type !== type) {
@@ -96,11 +114,21 @@ export class HookState {
     return hook;
   }
 
+  addHook(h: Hook) {
+    this._hooks.push(h);
+  }
+
+  /**
+   * Reset the next hook index.
+   *
+   * Called at the start of each render.
+   */
   resetIndex() {
     this._index = -1;
   }
 
-  runEffects(task: Task) {
+  /** Run pending tasks of type `task` for a component. */
+  run(task: Task) {
     for (let hook of this._hooks) {
       if (hook.type === "effect" && hook.task === task && hook.pendingEffect) {
         hook.cleanup = hook.pendingEffect() || null;
@@ -109,161 +137,33 @@ export class HookState {
     }
   }
 
+  /** Run cleanup tasks for hooks when a component is unmounted. */
   cleanup() {
     for (let hook of this._hooks) {
-      switch (hook.type) {
-        case "context":
-          hook.unsubscribe();
-          break;
-        case "effect":
-          if (hook.cleanup) {
-            hook.cleanup();
-            hook.cleanup = null;
-          }
-          break;
-      }
-    }
-  }
-
-  registerContext<T>(provider: ContextProvider<T>) {
-    this._component.registerContext(provider);
-  }
-
-  useEffect(effect: () => void, deps?: any[], task: Task = TASK_RUN_EFFECTS) {
-    let hook = this._nextHook<EffectHook>("effect");
-    if (!hook) {
-      hook = {
-        type: "effect",
-        task,
-        pendingEffect: effect,
-        deps: deps ?? null,
-        cleanup: null,
-      };
-      this._hooks.push(hook);
-      this._component.schedule(task);
-    } else if (!deps || !hook.deps || !depsEqual(hook.deps, deps)) {
       if (hook.cleanup) {
         hook.cleanup();
         hook.cleanup = null;
       }
-      hook.pendingEffect = effect;
-      hook.deps = deps ?? null;
-      this._component.schedule(task);
     }
-  }
-
-  useLayoutEffect(effect: () => void, deps?: any[]) {
-    return this.useEffect(effect, deps, TASK_RUN_LAYOUT_EFFECTS);
-  }
-
-  useMemo<T>(callback: () => T, deps: any[]) {
-    let hook = this._nextHook<MemoHook<T>>("memo");
-    if (!hook) {
-      hook = {
-        type: "memo",
-        result: callback(),
-        deps,
-      };
-      this._hooks.push(hook);
-    } else if (!depsEqual(hook.deps, deps)) {
-      hook.result = callback();
-      hook.deps = deps;
-    }
-    return hook.result;
-  }
-
-  useCallback<F extends Function>(callback: F, deps: any[]) {
-    let hook = this._nextHook<MemoHook<F>>("memo");
-    if (!hook) {
-      hook = {
-        type: "memo",
-        result: callback,
-        deps,
-      };
-      this._hooks.push(hook);
-    } else if (!depsEqual(hook.deps, deps)) {
-      hook.result = callback;
-      hook.deps = deps;
-    }
-    return hook.result;
-  }
-
-  useContext<T>(type: any): T {
-    let hook = this._nextHook<ContextHook<T>>("context");
-    if (!hook) {
-      const provider = this._component.getContext<T>(type);
-      if (provider) {
-        const listener = () => this._component.schedule(TASK_UPDATE);
-        const unsubscribe = () => provider.unsubscribe(listener);
-        hook = { type: "context", provider, unsubscribe };
-        provider.subscribe(listener);
-      } else {
-        const provider = { value: type.defaultValue };
-        hook = { type: "context", provider, unsubscribe: () => {} };
-      }
-      this._hooks.push(hook);
-    }
-    return hook.provider.value;
-  }
-
-  useState<S>(initialState: S | (() => S)) {
-    let hook = this._nextHook<StateHook<S>>("state");
-    if (!hook) {
-      const setter = (newState: S | ((current: S) => S)) => {
-        hook!.value =
-          typeof newState === "function"
-            ? (newState as any)(hook!.value)
-            : newState;
-        this._component.schedule(TASK_UPDATE);
-      };
-      const value =
-        typeof initialState === "function"
-          ? (initialState as any)()
-          : initialState;
-      hook = { type: "state", value, setter };
-      this._hooks.push(hook);
-    }
-    return [hook.value, hook.setter];
-  }
-
-  useReducer<S>(
-    reducer: (state: S, action: any) => S,
-    initialArg: S,
-    init?: (a: typeof initialArg) => S
-  ) {
-    let hook = this._nextHook<StateHook<S>>("state");
-    if (!hook) {
-      const dispatch = (action: any) => {
-        const newState = reducer(hook!.value, action);
-        if (!Object.is(hook!.value, newState)) {
-          hook!.value = newState;
-          this._component.schedule(TASK_UPDATE);
-        }
-      };
-      const value =
-        typeof init === "function" ? init(initialArg) : (initialArg as S);
-      hook = { type: "state", value, setter: dispatch };
-      this._hooks.push(hook);
-    }
-    return [hook.value, hook.setter];
-  }
-
-  useRef<T>(initialValue: T) {
-    let hook = this._nextHook<RefHook<T>>("ref");
-    if (!hook) {
-      hook = { type: "ref", current: initialValue };
-      this._hooks.push(hook);
-    }
-    return hook;
   }
 }
 
+/**
+ * Function which creates or returns the `HookState` for the component being rendered.
+ *
+ * Set to `null` by the renderer when no component is being rendered.
+ */
 let currentHooks: (() => HookState) | null = null;
 
+/**
+ * Callback used by the renderer to set the component being rendered or `null` if nothing
+ * is being rendered.
+ */
 export function setHookState(hs: (() => HookState) | null) {
   currentHooks = hs;
 }
 
+/** Get the `HookState` for the component being rendered. */
 function getHookState() {
   if (!currentHooks) {
     throw new Error("Hook called outside of component");
@@ -271,28 +171,99 @@ function getHookState() {
   return currentHooks();
 }
 
+/**
+ * Record the current component as being a provider of context of a given
+ * type to descendants.
+ */
 export function registerContext<T>(provider: ContextProvider<T>) {
   getHookState().registerContext(provider);
 }
 
 export function useCallback<F extends Function>(callback: F, deps: any[]) {
-  return getHookState().useCallback(callback, deps);
+  const hs = getHookState();
+  let hook = hs.nextHook<MemoHook<F>>("memo");
+  if (!hook) {
+    hook = {
+      type: "memo",
+      result: callback,
+      deps,
+      cleanup: null,
+    };
+    hs.addHook(hook);
+  } else if (!depsEqual(hook.deps, deps)) {
+    hook.result = callback;
+    hook.deps = deps;
+  }
+  return hook.result;
 }
 
-export function useEffect(effect: () => void, deps?: any[]) {
-  return getHookState().useEffect(effect, deps);
+export function useEffect(
+  effect: () => void,
+  deps?: any[],
+  task = TASK_RUN_EFFECTS
+) {
+  const hs = getHookState();
+  let hook = hs.nextHook<EffectHook>("effect");
+  if (!hook) {
+    hook = {
+      type: "effect",
+      task,
+      pendingEffect: effect,
+      deps: deps ?? null,
+      cleanup: null,
+    };
+    hs.addHook(hook);
+    hs.schedule(task);
+  } else if (!deps || !hook.deps || !depsEqual(hook.deps, deps)) {
+    if (hook.cleanup) {
+      hook.cleanup();
+      hook.cleanup = null;
+    }
+    hook.pendingEffect = effect;
+    hook.deps = deps ?? null;
+    hs.schedule(task);
+  }
 }
 
 export function useLayoutEffect(effect: () => void, deps?: any[]) {
-  return getHookState().useLayoutEffect(effect, deps);
+  return useEffect(effect, deps, TASK_RUN_LAYOUT_EFFECTS);
 }
 
-export function useContext(type: object): any {
-  return getHookState().useContext(type);
+export function useContext<T>(type: any): any {
+  const hs = getHookState();
+  let hook = hs.nextHook<ContextHook<T>>("context");
+  if (!hook) {
+    const provider = hs.getContext(type);
+    if (provider) {
+      const listener = () => hs.schedule(TASK_UPDATE);
+      const cleanup = () => provider.unsubscribe(listener);
+      hook = { type: "context", provider, cleanup };
+      provider.subscribe(listener);
+    } else {
+      const provider = { value: type.defaultValue };
+      hook = { type: "context", provider, cleanup: null };
+    }
+    hs.addHook(hook);
+  }
+  return hook.provider.value;
 }
 
 export function useMemo<T>(callback: () => T, deps: any[]) {
-  return getHookState().useMemo(callback, deps);
+  const hs = getHookState();
+  let hook = hs.nextHook<MemoHook<T>>("memo");
+  if (!hook) {
+    hook = {
+      type: "memo",
+      result: callback(),
+      deps,
+      cleanup: null,
+    };
+    hs.addHook(hook);
+  } else if (!depsEqual(hook.deps, deps)) {
+    hook.result = callback();
+    hook.deps = deps;
+  }
+  return hook.result;
 }
 
 export function useReducer<S, A>(
@@ -300,13 +271,51 @@ export function useReducer<S, A>(
   initialArg: S,
   init?: (arg: S) => S
 ) {
-  return getHookState().useReducer(reducer, initialArg, init);
+  const hs = getHookState();
+  let hook = hs.nextHook<StateHook<S>>("state");
+  if (!hook) {
+    const dispatch = (action: any) => {
+      const newState = reducer(hook!.value, action);
+      if (!Object.is(hook!.value, newState)) {
+        hook!.value = newState;
+        hs.schedule(TASK_UPDATE);
+      }
+    };
+    const value =
+      typeof init === "function" ? init(initialArg) : (initialArg as S);
+    hook = { type: "state", value, setter: dispatch, cleanup: null };
+    hs.addHook(hook);
+  }
+  return [hook.value, hook.setter];
 }
 
 export function useRef<T>(initialValue: T) {
-  return getHookState().useRef(initialValue);
+  const hs = getHookState();
+  let hook = hs.nextHook<RefHook<T>>("ref");
+  if (!hook) {
+    hook = { type: "ref", current: initialValue, cleanup: null };
+    hs.addHook(hook);
+  }
+  return hook;
 }
 
 export function useState<S>(initialState: S) {
-  return getHookState().useState(initialState);
+  const hs = getHookState();
+  let hook = hs.nextHook<StateHook<S>>("state");
+  if (!hook) {
+    const setter = (newState: S | ((current: S) => S)) => {
+      hook!.value =
+        typeof newState === "function"
+          ? (newState as any)(hook!.value)
+          : newState;
+      hs.schedule(TASK_UPDATE);
+    };
+    const value =
+      typeof initialState === "function"
+        ? (initialState as any)()
+        : initialState;
+    hook = { type: "state", value, setter, cleanup: null };
+    hs.addHook(hook);
+  }
+  return [hook.value, hook.setter];
 }
