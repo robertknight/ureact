@@ -1,5 +1,21 @@
 import { ContextProvider } from "./context.js";
 
+/** Re-render the component to apply state or context updates. */
+export const TASK_UPDATE = 0;
+
+/** Run effects scheduled with `useEffect` */
+export const TASK_RUN_EFFECTS = 1;
+
+/** Run effects scheduled with `useLayoutEffect` */
+export const TASK_RUN_LAYOUT_EFFECTS = 2;
+
+/**
+ * Specifies a type of task that a hook may schedule for a component.
+ *
+ * This is one of the `TASK_*` constants.
+ */
+export type Task = number;
+
 interface StateHook<S> {
   type: "state";
   value: S;
@@ -19,17 +35,9 @@ interface MemoHook<T> {
 
 type EffectCleanup = (() => void) | void;
 
-/** Specifies when an effect should run. */
-export const enum EffectTiming {
-  /** Run effect after DOM is updated but before the screen is updated. */
-  beforeRender = 0,
-  /** Run effect after DOM is updated and screen has been updated to reflect this. */
-  afterRender = 1,
-}
-
 interface EffectHook {
   type: "effect";
-  when: EffectTiming;
+  task: Task;
   deps: any[] | null;
   cleanup: (() => void) | null;
   pendingEffect: (() => EffectCleanup) | null;
@@ -52,11 +60,8 @@ type Hook =
  * Interface for a component's hooks to interact with the associated component.
  */
 export interface Component {
-  /** Schedule a re-render of this component due to a state or context update. */
-  scheduleUpdate(): void;
-
-  /** Schedule execution of pending effects for this component. */
-  scheduleEffects(when: EffectTiming): void;
+  /** Schedule a task to be executed asynchronously for the current component. */
+  schedule(task: Task): void;
 
   /** Get the nearest provider of context of a given type for this component. */
   getContext<T>(type: any): ContextProvider<T> | null;
@@ -95,9 +100,9 @@ export class HookState {
     this._index = -1;
   }
 
-  runEffects(when: EffectTiming) {
+  runEffects(task: Task) {
     for (let hook of this._hooks) {
-      if (hook.type === "effect" && hook.when === when && hook.pendingEffect) {
+      if (hook.type === "effect" && hook.task === task && hook.pendingEffect) {
         hook.cleanup = hook.pendingEffect() || null;
         hook.pendingEffect = null;
       }
@@ -124,22 +129,18 @@ export class HookState {
     this._component.registerContext(provider);
   }
 
-  useEffect(
-    effect: () => void,
-    deps?: any[],
-    when: EffectTiming = EffectTiming.afterRender
-  ) {
+  useEffect(effect: () => void, deps?: any[], task: Task = TASK_RUN_EFFECTS) {
     let hook = this._nextHook<EffectHook>("effect");
     if (!hook) {
       hook = {
         type: "effect",
-        when,
+        task,
         pendingEffect: effect,
         deps: deps ?? null,
         cleanup: null,
       };
       this._hooks.push(hook);
-      this._component.scheduleEffects(when);
+      this._component.schedule(task);
     } else if (!deps || !hook.deps || !depsEqual(hook.deps, deps)) {
       if (hook.cleanup) {
         hook.cleanup();
@@ -147,12 +148,12 @@ export class HookState {
       }
       hook.pendingEffect = effect;
       hook.deps = deps ?? null;
-      this._component.scheduleEffects(when);
+      this._component.schedule(task);
     }
   }
 
   useLayoutEffect(effect: () => void, deps?: any[]) {
-    return this.useEffect(effect, deps, EffectTiming.beforeRender);
+    return this.useEffect(effect, deps, TASK_RUN_LAYOUT_EFFECTS);
   }
 
   useMemo<T>(callback: () => T, deps: any[]) {
@@ -192,7 +193,7 @@ export class HookState {
     if (!hook) {
       const provider = this._component.getContext<T>(type);
       if (provider) {
-        const listener = () => this._component.scheduleUpdate();
+        const listener = () => this._component.schedule(TASK_UPDATE);
         const unsubscribe = () => provider.unsubscribe(listener);
         hook = { type: "context", provider, unsubscribe };
         provider.subscribe(listener);
@@ -213,7 +214,7 @@ export class HookState {
           typeof newState === "function"
             ? (newState as any)(hook!.value)
             : newState;
-        this._component.scheduleUpdate();
+        this._component.schedule(TASK_UPDATE);
       };
       const value =
         typeof initialState === "function"
@@ -236,7 +237,7 @@ export class HookState {
         const newState = reducer(hook!.value, action);
         if (!Object.is(hook!.value, newState)) {
           hook!.value = newState;
-          this._component.scheduleUpdate();
+          this._component.schedule(TASK_UPDATE);
         }
       };
       const value =

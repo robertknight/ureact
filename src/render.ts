@@ -9,7 +9,14 @@ import {
   isValidElement,
 } from "./jsx.js";
 import { ContextProvider } from "./context.js";
-import { EffectTiming, HookState, setHookState } from "./hooks.js";
+import {
+  HookState,
+  Task,
+  TASK_UPDATE,
+  TASK_RUN_LAYOUT_EFFECTS,
+  TASK_RUN_EFFECTS,
+  setHookState,
+} from "./hooks.js";
 import { diffElementProps } from "./dom-props.js";
 
 /**
@@ -169,14 +176,11 @@ class Root {
   /** The DOM `Document` to which `container` belongs. */
   private _document: Document;
 
-  /** Components which have pending effects that need to be executed. */
-  private _pendingEffects: Set<Component>;
-
-  /** Components which have pending layout effects that need to be executed. */
-  private _pendingLayoutEffects: Set<Component>;
-
-  /** Components that need to be re-rendered due to state updates. */
-  private _pendingUpdate: Set<Component>;
+  /**
+   * Map of `TASK_*` constant to queue of components which has that task pending.
+   * This is used to track components which need to be updated, run effects etc.
+   */
+  private _queues: Set<Component>[];
 
   /**
    * Error thrown during the current render or other invocation of user code
@@ -198,9 +202,11 @@ class Root {
 
     this._rootComponent = null;
     this._document = container.ownerDocument;
-    this._pendingEffects = new Set();
-    this._pendingLayoutEffects = new Set();
-    this._pendingUpdate = new Set();
+
+    // Make three task queues for `TASK_UPDATE`, `TASK_RUN_EFFECTS` and
+    // `TASK_RUN_LAYOUT_EFFECTS`.
+    this._queues = [new Set(), new Set(), new Set()];
+
     this._currentError = null;
     this._rendering = null;
 
@@ -211,8 +217,7 @@ class Root {
       }
 
       component.hooks = new HookState({
-        scheduleUpdate: () => this._scheduleUpdate(component),
-        scheduleEffects: (when) => this._scheduleEffects(component, when),
+        schedule: (task) => this._schedule(component, task),
         getContext: (type) => this._getContext(component, type),
         registerContext: (provider) => (component.contextProvider = provider),
       });
@@ -251,14 +256,8 @@ class Root {
    * Flush all pending state updates and effects.
    */
   flush() {
-    while (
-      this._pendingUpdate.size > 0 ||
-      this._pendingLayoutEffects.size > 0 ||
-      this._pendingEffects.size > 0
-    ) {
-      this._flushUpdates();
-      this._flushLayoutEffects();
-      this._flushEffects();
+    while (this._queues.some((q) => q.size > 0)) {
+      this._queues.forEach((_, task) => this._flush(task));
     }
   }
 
@@ -283,7 +282,7 @@ class Root {
     // Update the existing component if there is one and the types match.
     if (component) {
       const prevVnode = component.vnode;
-      if (prevVnode === vnode && !this._pendingUpdate.has(component)) {
+      if (prevVnode === vnode && !this._queues[TASK_UPDATE].has(component)) {
         // Bail out if vnode is same as previous render, unless there is a pending
         // state update for this component.
         return component;
@@ -463,7 +462,7 @@ class Root {
   }
 
   _renderCustom(vnode: VNode, component: Component) {
-    this._pendingUpdate.delete(component);
+    this._queues[TASK_UPDATE].delete(component);
 
     this._rendering = component;
     this._rendering.hooks?.resetIndex();
@@ -511,55 +510,35 @@ class Root {
     };
   }
 
-  _scheduleEffects(component: Component, when: EffectTiming) {
-    if (when === EffectTiming.afterRender) {
-      const isScheduled = this._pendingEffects.size > 0;
-      this._pendingEffects.add(component);
-      if (!isScheduled) {
-        // TODO - Use `requestAnimationFrame` or another method that will run
-        // after rendering.
-        queueMicrotask(() => this._flushEffects());
-      }
-    } else {
-      const isScheduled = this._pendingLayoutEffects.size > 0;
-      this._pendingLayoutEffects.add(component);
-      if (!isScheduled) {
-        queueMicrotask(() => this._flushLayoutEffects());
-      }
-    }
-  }
-
-  _flushLayoutEffects() {
-    for (let component of this._pendingLayoutEffects) {
-      component.hooks!.runEffects(EffectTiming.beforeRender);
-    }
-    this._pendingLayoutEffects.clear();
-  }
-
-  _flushEffects() {
-    for (let component of this._pendingEffects) {
-      component.hooks!.runEffects(EffectTiming.afterRender);
-    }
-    this._pendingEffects.clear();
-  }
-
-  _scheduleUpdate(component: Component) {
-    const isScheduled = this._pendingUpdate.size > 0;
-    this._pendingUpdate.add(component);
+  _schedule(component: Component, task: Task) {
+    const queue = this._queues[task];
+    const isScheduled = queue.size > 0;
+    queue.add(component);
     if (!isScheduled) {
-      queueMicrotask(() => this._flushUpdates());
+      const flush = () => this._flush(task);
+      queueMicrotask(flush);
     }
   }
 
-  _flushUpdates() {
+  _flush(task: Task) {
+    const queue = this._queues[task];
+
+    if (task === TASK_RUN_LAYOUT_EFFECTS || task === TASK_RUN_EFFECTS) {
+      for (let component of queue) {
+        component.hooks!.runEffects(task);
+      }
+      queue.clear();
+      return;
+    }
+
     // Flushing updates may trigger additional state changes. Therefore we loop
     // until there are no more pending updates.
-    while (this._pendingUpdate.size > 0) {
-      const pending = [...this._pendingUpdate];
+    while (queue.size > 0) {
+      const pending = [...queue];
       pending.sort((a, b) => a.depth - b.depth);
 
       for (let component of pending) {
-        if (!this._pendingUpdate.has(component)) {
+        if (!queue.has(component)) {
           // Component is a child of one higher up the tree that was already
           // re-rendered.
           continue;
@@ -637,9 +616,7 @@ class Root {
 
       // Run cleanup that only applies to custom components.
       if (typeof component.vnode.type === "function") {
-        this._pendingUpdate.delete(component);
-        this._pendingEffects.delete(component);
-        this._pendingLayoutEffects.delete(component);
+        this._queues.forEach((q) => q.delete(component));
         component.hooks?.cleanup();
       }
     }
