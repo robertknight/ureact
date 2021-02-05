@@ -9,14 +9,7 @@ import {
   isValidElement,
 } from "./jsx.js";
 import { ContextProvider } from "./context.js";
-import {
-  HookState,
-  Task,
-  TASK_UPDATE,
-  TASK_RUN_LAYOUT_EFFECTS,
-  TASK_RUN_EFFECTS,
-  setHookState,
-} from "./hooks.js";
+import { HookState, Task, setHookState } from "./hooks.js";
 import { diffElementProps } from "./dom-props.js";
 
 /**
@@ -177,7 +170,7 @@ class Root {
   private _document: Document;
 
   /**
-   * Map of `TASK_*` constant to queue of components which has that task pending.
+   * Map of `Task` enum to queue of components which has that task pending.
    * This is used to track components which need to be updated, run effects etc.
    */
   private _queues: Set<Component>[];
@@ -203,8 +196,8 @@ class Root {
     this._rootComponent = null;
     this._document = container.ownerDocument;
 
-    // Make three task queues for `TASK_UPDATE`, `TASK_RUN_EFFECTS` and
-    // `TASK_RUN_LAYOUT_EFFECTS`.
+    // Make three task queues for `Task.Update`, `Task.RunEffects` and
+    // `Task.RunLayoutEffects`.
     this._queues = [new Set(), new Set(), new Set()];
 
     this._currentError = null;
@@ -282,7 +275,7 @@ class Root {
     // Update the existing component if there is one and the types match.
     if (component) {
       const prevVnode = component.vnode;
-      if (prevVnode === vnode && !this._queues[TASK_UPDATE].has(component)) {
+      if (prevVnode === vnode && !this._queues[Task.Update].has(component)) {
         // Bail out if vnode is same as previous render, unless there is a pending
         // state update for this component.
         return component;
@@ -462,7 +455,7 @@ class Root {
   }
 
   _renderCustom(vnode: VNode, component: Component) {
-    this._queues[TASK_UPDATE].delete(component);
+    this._queues[Task.Update].delete(component);
 
     this._rendering = component;
     this._rendering.hooks?.resetIndex();
@@ -523,7 +516,7 @@ class Root {
   _flush(task: Task) {
     const queue = this._queues[task];
 
-    if (task === TASK_RUN_LAYOUT_EFFECTS || task === TASK_RUN_EFFECTS) {
+    if (task === Task.RunLayoutEffects || task === Task.RunEffects) {
       for (let component of queue) {
         component.hooks!.run(task);
       }

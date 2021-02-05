@@ -1,20 +1,13 @@
 import { ContextProvider } from "./context.js";
 
-/** Re-render the component to apply state or context updates. */
-export const TASK_UPDATE = 0;
-
-/** Run effects scheduled with `useEffect` */
-export const TASK_RUN_EFFECTS = 1;
-
-/** Run effects scheduled with `useLayoutEffect` */
-export const TASK_RUN_LAYOUT_EFFECTS = 2;
-
 /**
  * Specifies a type of task that a hook may schedule for a component.
- *
- * This is one of the `TASK_*` constants.
  */
-export type Task = number;
+export const enum Task {
+  Update,
+  RunEffects,
+  RunLayoutEffects,
+}
 
 interface StateHook<S> {
   type: "state";
@@ -200,7 +193,7 @@ export function useCallback<F extends Function>(callback: F, deps: any[]) {
 export function useEffect(
   effect: () => void,
   deps?: any[],
-  task = TASK_RUN_EFFECTS
+  task = Task.RunEffects
 ) {
   const hs = getHookState();
   let hook = hs.nextHook<EffectHook>("effect");
@@ -226,7 +219,7 @@ export function useEffect(
 }
 
 export function useLayoutEffect(effect: () => void, deps?: any[]) {
-  return useEffect(effect, deps, TASK_RUN_LAYOUT_EFFECTS);
+  return useEffect(effect, deps, Task.RunLayoutEffects);
 }
 
 export function useContext<T>(type: any): any {
@@ -235,7 +228,7 @@ export function useContext<T>(type: any): any {
   if (!hook) {
     const provider = hs.getContext(type);
     if (provider) {
-      const listener = () => hs.schedule(TASK_UPDATE);
+      const listener = () => hs.schedule(Task.Update);
       const cleanup = () => provider.unsubscribe(listener);
       hook = { type: "context", provider, cleanup };
       provider.subscribe(listener);
@@ -278,7 +271,7 @@ export function useReducer<S, A>(
       const newState = reducer(hook!.value, action);
       if (!Object.is(hook!.value, newState)) {
         hook!.value = newState;
-        hs.schedule(TASK_UPDATE);
+        hs.schedule(Task.Update);
       }
     };
     const value =
@@ -308,7 +301,7 @@ export function useState<S>(initialState: S) {
         typeof newState === "function"
           ? (newState as any)(hook!.value)
           : newState;
-      hs.schedule(TASK_UPDATE);
+      hs.schedule(Task.Update);
     };
     const value =
       typeof initialState === "function"
