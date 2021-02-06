@@ -83,9 +83,16 @@ function getPropertyMeta(el: Element, prop: string): PropMeta {
     }
     domName = eventName;
   } else {
-    // FIXME - This only looks as the current prototype. The property may exist
-    // on a parent class.
-    const descriptor = Object.getOwnPropertyDescriptor(proto, prop);
+    let descriptor;
+    if (prop in el) {
+      // Search up the prototype chain to find the property descriptor for this
+      // property.
+      let currentProto = proto;
+      do {
+        descriptor = Object.getOwnPropertyDescriptor(currentProto, prop);
+        currentProto = Object.getPrototypeOf(currentProto);
+      } while (!descriptor && proto !== "Element");
+    }
 
     // If the DOM element has a settable property that matches the prop name
     // then we'll write directly to the DOM property, otherwise fallback to
@@ -96,7 +103,8 @@ function getPropertyMeta(el: Element, prop: string): PropMeta {
       type = "attribute";
 
       // For SVG elements the `className` property exists but is not writable.
-      // Therefore we need to fall back to the corresponding attribute.
+      // Therefore we fall back to the corresponding attribute, which has a different
+      // name than the property.
       if (prop === "className") {
         domName = "class";
       }

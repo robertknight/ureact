@@ -19,8 +19,32 @@ describe("DOM properties, attribute & event listeners", () => {
 
   describe("initial render", () => {
     it("sets element properties", () => {
+      // Set the property.
       const container = scratch.render(h("a", { href: "https://example.com" }));
       assert.equal(container.innerHTML, '<a href="https://example.com"></a>');
+
+      // Update it and make sure that it was set via a property rather than an
+      // attribute.
+      const link = container.querySelector("a");
+      sinon.stub(link, "setAttribute");
+      scratch.render(h("a", { href: "https://example.org" }));
+
+      assert.equal(container.innerHTML, '<a href="https://example.org"></a>');
+      sinon.assert.notCalled(link.setAttribute);
+    });
+
+    it("sets element properties inherited from a base class", () => {
+      const container = scratch.render(h("a", { className: "foo" }));
+      assert.equal(container.innerHTML, '<a class="foo"></a>');
+
+      // Update it and make sure that it was set via a property rather than an
+      // attribute.
+      const el = container.querySelector("a");
+      sinon.stub(el, "setAttribute");
+      scratch.render(h("a", { className: "bar" }));
+
+      assert.equal(container.innerHTML, '<a class="bar"></a>');
+      sinon.assert.notCalled(el.setAttribute);
     });
 
     it("sets attributes", () => {
