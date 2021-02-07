@@ -62,9 +62,13 @@ export function jsx(type: NodeType, props: Props, key: VNodeKey | null = null) {
  */
 export function createElement(
   type: NodeType,
-  props: Props = {},
+  props?: Props,
   ...children: VNodeChildren[]
 ): VNode {
+  if (props == null) {
+    props = {};
+  }
+
   // nb. Here we assume it is safe to mutate `props`.
   const key = props.key ?? null;
   if (key !== null) {

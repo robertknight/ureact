@@ -105,6 +105,19 @@ describe("JSX", () => {
         ref,
       });
     });
+
+    [null, undefined].forEach((props) => {
+      it("allows `props` argument to be `null` or `undefined`", () => {
+        const vnode = createElement("div", props);
+        assert.deepEqual(vnode, {
+          _tag: elementSymbol,
+          type: "div",
+          props: {},
+          key: null,
+          ref: null,
+        });
+      });
+    });
   });
 
   describe("isValidElement", () => {
