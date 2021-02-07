@@ -230,6 +230,9 @@ class Root {
   /**
    * Update the component tree rendered into this root's container to match
    * `vnode`.
+   *
+   * If an unhandled error occurs during rendering, the component tree is unmounted
+   * and the error is re-thrown.
    */
   render(vnode: VNodeChild) {
     this._rootComponent = this._diff(
@@ -239,12 +242,14 @@ class Root {
       this.container,
       null
     );
-
     this._handlePendingError();
   }
 
   /**
    * Flush all pending state updates and effects.
+   *
+   * If an unhandled error occurs during re-rendering or running an effect, the
+   * component tree is unmounted and the error is re-thrown.
    */
   flush() {
     while (this._queues.some((q) => q.size > 0)) {
@@ -484,9 +489,16 @@ class Root {
     return output;
   }
 
+  /**
+   * Find the nearest error handler for a component and invoke it with `error`.
+   *
+   * If no error handler is found, the `_currentError` field is set. At the end
+   * of the current render, effect flush or other activity, `handlePendingError`
+   * should be called to handle any pending unhandled errors.
+   */
   _invokeErrorHandler(context: Component, error: Error) {
     if (this._currentError) {
-      // Only the first error in any render is reported.
+      // Only the first unhandled error in any activity is reported.
       return;
     }
 
@@ -527,9 +539,14 @@ class Root {
 
     if (task === Task.RunLayoutEffects || task === Task.RunEffects) {
       for (let component of queue) {
-        component.hooks!.run(task);
+        try {
+          component.hooks!.run(task);
+        } catch (err) {
+          this._invokeErrorHandler(component, err);
+        }
       }
       queue.clear();
+      this._handlePendingError();
       return;
     }
 
@@ -630,7 +647,11 @@ class Root {
       // Run cleanup that only applies to custom components.
       if (typeof component.vnode.type === "function") {
         this._queues.forEach((q) => q.delete(component));
-        component.hooks?.cleanup();
+        try {
+          component.hooks?.cleanup();
+        } catch (err) {
+          this._invokeErrorHandler(component, err);
+        }
       }
     }
 

@@ -3,6 +3,7 @@ import * as sinon from "sinon";
 const { assert } = chai;
 
 import {
+  ErrorBoundary,
   createContext,
   createElement as h,
   render,
@@ -15,6 +16,8 @@ import {
   useRef,
   useState,
 } from "../build/index.js";
+
+import { act } from "../build/test-utils.js";
 
 import { createScratchpad } from "./utils/scratchpad.js";
 
@@ -449,6 +452,91 @@ describe("hooks", () => {
         assert.equal(effectCount, 2);
         assert.deepEqual(items, [2]);
       });
+    });
+
+    const BrokenEffect = () => {
+      useEffect(() => {
+        throw new Error("Effect error");
+      });
+      return h("div", {}, "Test");
+    };
+
+    const BrokenCleanup = () => {
+      useEffect(() => {
+        return () => {
+          throw new Error("Cleanup error");
+        };
+      });
+      return h("div", {}, "Test");
+    };
+
+    it("unmounts component tree if an unhandled error is thrown during an effect", () => {
+      const container = scratch.render(h("button"));
+
+      assert.throws(() => {
+        act(() => {
+          scratch.render(h(BrokenEffect));
+        });
+      }, "Effect error");
+
+      assert.equal(container.innerHTML, "");
+    });
+
+    it("allows error boundary to handle errors thrown during effects", () => {
+      const App = () => {
+        const [error, setError] = useState(null);
+        return h(
+          ErrorBoundary,
+          { handler: setError },
+          error ? error.message : h(BrokenEffect)
+        );
+      };
+
+      const container = scratch.render(h("button"));
+
+      act(() => {
+        scratch.render(h(App));
+      });
+
+      assert.equal(container.innerHTML, "Effect error");
+    });
+
+    it("unmounts component tree if an unhandled error is thrown during effect cleanup", () => {
+      let container;
+      act(() => {
+        container = scratch.render(h(BrokenCleanup));
+      });
+
+      assert.throws(() => {
+        // Re-render. This will run cleanup from the previous render.
+        act(() => {
+          scratch.render(h(BrokenCleanup));
+        });
+      }, "Cleanup error");
+
+      assert.equal(container.innerHTML, "");
+    });
+
+    it("allows error boundary to handle errors thrown during effect cleanup", () => {
+      const App = () => {
+        const [error, setError] = useState(null);
+        return h(
+          ErrorBoundary,
+          { handler: setError },
+          error ? error.message : h(BrokenCleanup)
+        );
+      };
+
+      let container;
+      act(() => {
+        container = scratch.render(h(App));
+      });
+
+      act(() => {
+        scratch.render(h(App));
+      });
+
+      assert.equal(container.innerHTML, "Cleanup error");
     });
   });
 
