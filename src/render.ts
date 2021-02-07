@@ -12,6 +12,9 @@ import { ContextProvider } from "./context.js";
 import { HookState, Task, setHookState } from "./hooks.js";
 import { diffElementProps } from "./dom-props.js";
 
+/** Types of DOM node which a component can render. */
+export type DOMOutput = Element | Text;
+
 /**
  * Backing object for a rendered vnode.
  *
@@ -40,7 +43,7 @@ export interface BaseComponent {
   /**
    * DOM node produced by rendering `vnode`.
    */
-  dom: Element | Text | null;
+  dom: DOMOutput | null;
 }
 
 /**
@@ -75,7 +78,7 @@ interface Component extends BaseComponent {
    *
    * This is only set on custom components.
    */
-  domRoots: (Element | Text)[] | null;
+  domRoots: DOMOutput[] | null;
 }
 
 /**
@@ -116,10 +119,7 @@ function isErrorBoundary(vnode: VNodeChild): vnode is ErrorBoundaryVNode {
 /**
  * Return the top-level DOM nodes rendered by a component.
  */
-export function forEachDomRoot(
-  c: Component,
-  visit: (node: Element | Text) => void
-) {
+export function forEachDomRoot(c: Component, visit: (node: DOMOutput) => void) {
   if (c.dom !== null) {
     visit(c.dom);
   } else if (c.domRoots !== null) {
@@ -339,7 +339,7 @@ class Root {
     const prevOutput = component.output;
     const newOutput = [];
 
-    const domRoots: (Element | Text)[] | null =
+    const domRoots: DOMOutput[] | null =
       component.domRoots !== null ? [] : null;
 
     if (vnodes) {
@@ -437,7 +437,7 @@ class Root {
     } else if (typeof vnode.type === "function") {
       const output = this._renderCustom(vnode, newComponent);
 
-      const domRoots = [] as (Element | Text)[];
+      const domRoots = [] as DOMOutput[];
       for (let child of flattenChildren(output)) {
         const childComponent = this._renderTree(newComponent, child);
         newComponent.output.push(childComponent);
