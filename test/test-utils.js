@@ -60,23 +60,6 @@ describe("test-utils", () => {
       assert.equal(effectCount, 1);
     });
 
-    it("flushes pending layout effects", () => {
-      let effectCount = 0;
-      const Widget = () => {
-        useLayoutEffect(() => {
-          ++effectCount;
-        }, []);
-        return null;
-      };
-
-      const container = scratch.render(h(Widget));
-      assert.equal(effectCount, 0);
-
-      act(() => {});
-
-      assert.equal(effectCount, 1);
-    });
-
     it("supports async callbacks", async () => {
       const Widget = () => {
         const [count, setCount] = useState(0);

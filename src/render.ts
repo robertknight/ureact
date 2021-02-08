@@ -150,6 +150,30 @@ function insertNodeAfter(node: Node, parent: Element, after: Node | null) {
   }
 }
 
+/** Schedule a callback to run after the screen is updated. */
+function scheduleAfterRender(callback: () => void) {
+  let didRun = false;
+  const runOnce = () => {
+    if (!didRun) {
+      didRun = true;
+      callback();
+    }
+  };
+  if (typeof requestAnimationFrame === "function") {
+    // requestAnimationFrame fires right before the screen is updated, so delay
+    // the callback until just after.
+    requestAnimationFrame(() => {
+      setTimeout(runOnce, 1);
+    });
+
+    // Schedule a fallback in case requestAnimationFrame is not called, eg.
+    // because the page is hidden.
+    setTimeout(runOnce, 100);
+  } else {
+    setTimeout(runOnce, 10);
+  }
+}
+
 /**
  * Render tree root.
  *
@@ -242,6 +266,7 @@ class Root {
       this.container,
       null
     );
+    this._flush(Task.RunLayoutEffects);
     this._handlePendingError();
   }
 
@@ -527,10 +552,20 @@ class Root {
   _schedule(component: Component, task: Task) {
     const queue = this._queues[task];
     const isScheduled = queue.size > 0;
+
     queue.add(component);
+
     if (!isScheduled) {
-      const flush = () => this._flush(task);
-      queueMicrotask(flush);
+      switch (task) {
+        case Task.Update:
+          queueMicrotask(() => this._flush(task));
+          break;
+        case Task.RunEffects:
+          scheduleAfterRender(() => this._flush(task));
+          break;
+        // Layout effects are run synchronously at the end of render, so
+        // no flush is scheduled for them here.
+      }
     }
   }
 
@@ -608,6 +643,8 @@ class Root {
           insertAfter
         );
       }
+
+      this._flush(Task.RunLayoutEffects);
     }
 
     this._handlePendingError();
