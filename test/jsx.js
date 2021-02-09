@@ -2,43 +2,44 @@ import chai from "chai";
 const { assert } = chai;
 
 import { elementSymbol } from "../build/jsx.js";
-import { createElement, jsx, isValidElement } from "../build/index.js";
+import { createElement, isValidElement } from "../build/index.js";
+import { jsx } from "../build/jsx-runtime.js";
+import { jsxDEV } from "../build/jsx-dev-runtime.js";
 
 describe("JSX", () => {
-  // `jsx` is the same as `createElement` except for the handling of `children`
-  // and `key`, so most functionality is covered by `createElement` tests below.
   describe("jsx", () => {
-    it("extracts ref from props", () => {
-      const aRef = { current: null };
-      const vnode = jsx("div", { someProp: "someValue", ref: aRef });
-      assert.deepEqual(vnode, {
-        _tag: elementSymbol,
-        type: "div",
-        props: { someProp: "someValue" },
-        key: null,
-        ref: aRef,
+    it("returns JSX element", () => {
+      const el = jsx("a", { href: "https://example.com" }, "a-key");
+      assert.deepEqual(el, {
+        $$typeof: elementSymbol,
+        type: "a",
+        props: { href: "https://example.com" },
+        key: "a-key",
       });
     });
+  });
 
-    it("sets key to `null` if missing", () => {
-      const vnode = jsx("div", { someProp: "someValue" });
-      assert.deepEqual(vnode, {
-        _tag: elementSymbol,
-        type: "div",
-        props: { someProp: "someValue" },
-        key: null,
-        ref: null,
-      });
-    });
+  describe("jsxDEV", () => {
+    it("returns JSX element", () => {
+      const source = { fileName: "foobar.js", fileNumber: 1, columnNumber: 2 };
+      const self = {};
 
-    it("removes `__source` and `__self` props", () => {
-      const vnode = jsx("div", { __source: "the-source", __self: "the-self" });
-      assert.deepEqual(vnode, {
-        _tag: elementSymbol,
-        type: "div",
-        props: {},
-        key: null,
-        ref: null,
+      const el = jsxDEV(
+        "a",
+        { href: "https://example.com" },
+        "a-key",
+        false /* isStaticChildren */,
+        source,
+        self
+      );
+
+      assert.deepEqual(el, {
+        $$typeof: elementSymbol,
+        type: "a",
+        props: { href: "https://example.com" },
+        key: "a-key",
+        source,
+        self,
       });
     });
   });
@@ -47,33 +48,30 @@ describe("JSX", () => {
     it("creates a DOM VNode", () => {
       const vnode = createElement("div", { someProp: "someValue" });
       assert.deepEqual(vnode, {
-        _tag: elementSymbol,
+        $$typeof: elementSymbol,
         type: "div",
         props: { someProp: "someValue" },
         key: null,
-        ref: null,
       });
     });
 
     it("sets `children` prop to third arg if there are exactly 3 args", () => {
       const vnode = createElement("div", {}, "child");
       assert.deepEqual(vnode, {
-        _tag: elementSymbol,
+        $$typeof: elementSymbol,
         type: "div",
         props: { children: "child" },
         key: null,
-        ref: null,
       });
     });
 
     it("sets `children` prop to array if there are more than 3 args", () => {
       const vnode = createElement("div", {}, "childA", "childB");
       assert.deepEqual(vnode, {
-        _tag: elementSymbol,
+        $$typeof: elementSymbol,
         type: "div",
         props: { children: ["childA", "childB"] },
         key: null,
-        ref: null,
       });
     });
 
@@ -83,11 +81,10 @@ describe("JSX", () => {
         otherProp: "testValue",
       });
       assert.deepEqual(vnode, {
-        _tag: elementSymbol,
+        $$typeof: elementSymbol,
         type: "div",
         props: { otherProp: "testValue" },
         key: "aKey",
-        ref: null,
       });
     });
 
@@ -98,11 +95,10 @@ describe("JSX", () => {
         otherProp: "testValue",
       });
       assert.deepEqual(vnode, {
-        _tag: elementSymbol,
+        $$typeof: elementSymbol,
         type: "div",
-        props: { otherProp: "testValue" },
+        props: { otherProp: "testValue", ref },
         key: null,
-        ref,
       });
     });
 
@@ -110,12 +106,34 @@ describe("JSX", () => {
       it("allows `props` argument to be `null` or `undefined`", () => {
         const vnode = createElement("div", props);
         assert.deepEqual(vnode, {
-          _tag: elementSymbol,
+          $$typeof: elementSymbol,
           type: "div",
           props: {},
           key: null,
-          ref: null,
         });
+      });
+    });
+
+    it("removes `__source` and `__self` props", () => {
+      const vnode = createElement("div", {
+        __source: "the-source",
+        __self: "the-self",
+      });
+      assert.deepEqual(vnode, {
+        $$typeof: elementSymbol,
+        type: "div",
+        props: {},
+        key: null,
+      });
+    });
+
+    it("sets key to `null` if missing", () => {
+      const vnode = createElement("div", { someProp: "someValue" });
+      assert.deepEqual(vnode, {
+        $$typeof: elementSymbol,
+        type: "div",
+        props: { someProp: "someValue" },
+        key: null,
       });
     });
   });

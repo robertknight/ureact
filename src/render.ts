@@ -452,8 +452,8 @@ class Root {
         ? this._document.createElementNS(SVG_NAMESPACE, vnode.type)
         : this._document.createElement(vnode.type);
       diffElementProps(element, {}, vnode.props);
-      if (vnode.ref) {
-        vnode.ref.current = element;
+      if (vnode.props.ref) {
+        vnode.props.ref.current = element;
       }
       newComponent.dom = element;
 
@@ -676,7 +676,7 @@ class Root {
       // Clear component ref. We only do this if the ref refers to the DOM element
       // being removed in case the same ref has been used for a new component mounted
       // in place of this one.
-      const ref = component.vnode.ref;
+      const ref = component.vnode.props.ref;
       if (ref && ref.current === component.dom) {
         ref.current = null;
       }

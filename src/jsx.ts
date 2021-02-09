@@ -14,44 +14,30 @@ export interface Ref<T> {
   current: T;
 }
 
-// Element produced by a component describing what to render.
+/**
+ * Element produced by `createElement` or JSX describing what to render.
+ */
 export interface VNode {
+  $$typeof: Symbol;
+
   type: NodeType;
   props: Props;
   key: VNodeKey | null;
-  ref: Ref<any> | null;
+
+  source?: any;
+  self?: any;
 }
 
-export const elementSymbol = Symbol.for("ureactElement");
+export function Fragment(props: Props) {
+  return props.children;
+}
 
 /**
- * Create a VNode.
- *
- * This is used by the "new" JSX transform. See
- * https://reactjs.org/blog/2020/09/22/introducing-the-new-jsx-transform.html.
+ * A non-serializable property added to JSX elements to indicate that the object was
+ * created by the `jsx` or `createElement` functions. This prevents objects
+ * from other sources accidentally being used as VNodes.
  */
-export function jsx(type: NodeType, props: Props, key: VNodeKey | null = null) {
-  // nb. Here we assume it is safe to mutate `props`.
-  const ref = props.ref ?? null;
-  if (ref !== null) {
-    delete props.ref;
-  }
-
-  delete props.__source;
-  delete props.__self;
-
-  return {
-    // `_tag` is a non-serializable property used to indicate that the object was
-    // created by the `jsx` or `createElement` functions. This prevents objects
-    // from other sources accidentally being used as VNodes.
-    _tag: elementSymbol,
-
-    type,
-    props,
-    key,
-    ref,
-  };
-}
+export const elementSymbol = Symbol.for("react.element");
 
 /**
  * Create a VNode.
@@ -65,25 +51,33 @@ export function createElement(
   props?: Props,
   ...children: VNodeChildren[]
 ): VNode {
-  if (props == null) {
-    props = {};
-  }
+  let key = null;
 
-  // nb. Here we assume it is safe to mutate `props`.
-  const key = props.key ?? null;
-  if (key !== null) {
-    delete props.key;
+  const normalizedProps = {} as Props;
+  for (let prop in props) {
+    const value = props[prop];
+    if (prop === "key") {
+      key = value;
+    } else if (prop !== "__source" && prop !== "__self") {
+      normalizedProps[prop] = props[prop];
+    }
   }
 
   // For consistency with `React.createElement`, if only 3 arguments are passed
   // then `children` is the value of the third argument.
   if (children.length === 1) {
-    props.children = arguments[2];
+    normalizedProps.children = arguments[2];
   } else if (children.length > 0) {
-    props.children = children;
+    normalizedProps.children = children;
   }
 
-  return jsx(type, props, key);
+  return {
+    $$typeof: elementSymbol,
+
+    type,
+    props: normalizedProps,
+    key,
+  };
 }
 
 /**
@@ -92,7 +86,7 @@ export function createElement(
  * See https://reactjs.org/docs/react-api.html#isvalidelement.
  */
 export function isValidElement(obj: any): obj is VNode {
-  return obj != null && obj._tag === elementSymbol;
+  return obj != null && obj.$$typeof === elementSymbol;
 }
 
 export function flattenChildren(children: VNodeChildren): VNodeChild[] {

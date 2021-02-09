@@ -243,14 +243,14 @@ export function diffElementProps(
   newProps: Props
 ) {
   for (let prop in oldProps) {
-    if (prop !== "children" && !(prop in newProps)) {
+    if (prop !== "children" && prop !== "ref" && !(prop in newProps)) {
       const meta = getPropertyMeta(el, prop);
       unsetProperty(el, meta);
     }
   }
 
   for (let prop in newProps) {
-    if (prop !== "children") {
+    if (prop !== "children" && prop !== "ref") {
       const oldValue = oldProps[prop];
       const newValue = newProps[prop];
 

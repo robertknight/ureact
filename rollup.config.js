@@ -1,10 +1,14 @@
-import { terser } from "rollup-plugin-terser";
-
-export default {
-  input: "build/index.js",
-  output: [
-    { file: "dist/ureact.js", format: "cjs" },
-    { file: "dist/ureact.min.js", format: "cjs", plugins: [terser()] },
-    { file: "dist/ureact.esm.js", format: "esm", plugins: [terser()] },
-  ],
-};
+export default [
+  {
+    input: [
+      "build/index.js",
+      "build/jsx-runtime",
+      "build/jsx-dev-runtime",
+      "build/test-utils.js",
+    ],
+    output: [
+      { dir: "dist/", format: "cjs", chunkFileNames: "core.js" },
+      { dir: "dist/esm", format: "esm", chunkFileNames: "core.js" },
+    ],
+  },
+];

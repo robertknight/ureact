@@ -1,5 +1,5 @@
 // React APIs
-export { createElement, isValidElement, jsx } from "./jsx.js";
+export { Fragment, createElement, isValidElement } from "./jsx.js";
 export { render, unmountComponentAtNode } from "./render.js";
 export { createContext } from "./context.js";
 export {
@@ -12,7 +12,7 @@ export {
   useRef,
   useState,
 } from "./hooks.js";
-export { Fragment, createRef, memo } from "./utils.js";
+export { createRef, memo } from "./utils.js";
 
 // Additional APIs
 export { ErrorBoundary } from "./render.js";

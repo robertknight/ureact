@@ -9,10 +9,6 @@ import {
 import { shallowEqual } from "./diff-utils.js";
 import { useMemo, useRef } from "./hooks.js";
 
-export function Fragment(props: Props) {
-  return props.children;
-}
-
 export function createRef<T>(): Ref<T | null> {
   return { current: null };
 }
