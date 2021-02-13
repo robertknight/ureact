@@ -571,7 +571,15 @@ describe("hooks", () => {
       effectCount = 0;
     });
 
-    it("runs effects asynchronously after render", async () => {
+    afterEach(() => {
+      if (typeof globalThis.requestAnimationFrame === "function") {
+        globalThis.requestAnimationFrame = undefined;
+      }
+    });
+
+    it("runs effects asynchronously without `requestAnimationFrame` if not available", async () => {
+      assert.equal(typeof globalThis.requestAnimationFrame, "undefined");
+
       const Widget = () => {
         useEffect(() => {
           ++effectCount;
@@ -583,6 +591,29 @@ describe("hooks", () => {
       assert.equal(effectCount, 0);
 
       // Delay that is long enough for the effect to run.
+      await delay(20);
+
+      assert.equal(effectCount, 1);
+    });
+
+    it("runs effects asynchronously with `requestAnimationFrame` if available", async () => {
+      let rafCallback;
+      globalThis.requestAnimationFrame = (callback) => {
+        rafCallback = callback;
+      };
+
+      const Widget = () => {
+        useEffect(() => {
+          ++effectCount;
+        });
+        return "Hello world";
+      };
+
+      scratch.render(h(Widget));
+
+      assert.equal(typeof rafCallback, "function");
+      rafCallback();
+
       await delay(20);
 
       assert.equal(effectCount, 1);

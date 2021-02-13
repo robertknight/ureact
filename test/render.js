@@ -2,6 +2,7 @@ import chai from "chai";
 import sinon from "sinon";
 const { assert } = chai;
 
+// Import the public rendering APIs from `index.js`.
 import {
   ErrorBoundary,
   Fragment,
@@ -11,6 +12,9 @@ import {
   useState,
 } from "../build/index.js";
 import { act } from "../build/test-utils.js";
+
+// Import additional private APIs from `render.js`
+import { flushRoot, getRenderedOutput } from "../build/render.js";
 
 import { delay } from "./utils/delay.js";
 import { createScratchpad } from "./utils/scratchpad.js";
@@ -787,6 +791,33 @@ describe("rendering", () => {
       assert.equal(parentRenderCount, 2);
       assert.equal(childRenderCount, 2);
     });
+
+    it("preserves DOM position of updated component with DOM siblings", () => {
+      const Child = () => {
+        const [count, setCount] = useState(0);
+        const onClick = () => setCount((c) => c + 1);
+        return h("button", { onClick }, count);
+      };
+
+      const Parent = () => {
+        return h("div", {}, h("div"), h("span"), h(Child), h("p"));
+      };
+
+      const container = scratch.render(h(Parent));
+      assert.equal(
+        container.innerHTML,
+        "<div><div></div><span></span><button>0</button><p></p></div>"
+      );
+
+      act(() => {
+        container.querySelector("button").click();
+      });
+
+      assert.equal(
+        container.innerHTML,
+        "<div><div></div><span></span><button>1</button><p></p></div>"
+      );
+    });
   });
 
   describe("unmountComponentAtNode", () => {
@@ -938,6 +969,69 @@ describe("rendering", () => {
       });
 
       assert.deepEqual(log, ["Child boundary: Error in child"]);
+    });
+  });
+
+  function formatOutput(component) {
+    return {
+      vnode: component.vnode,
+      dom: component.dom?.localName,
+      output: component.output.map(formatOutput),
+    };
+  }
+
+  describe("getRenderedOutput", () => {
+    it("returns `null` if DOM element is not a render root", () => {
+      assert.equal(getRenderedOutput({}), null);
+    });
+
+    it("returns expected structure", () => {
+      const Widget = ({ text }) => {
+        return h("button", { className: "foo" }, text);
+      };
+
+      const container = scratch.render(h(Widget, { text: "some-text" }));
+
+      const output = formatOutput(getRenderedOutput(container));
+
+      assert.deepEqual(output, {
+        vnode: h(Widget, { text: "some-text" }),
+        dom: undefined,
+        output: [
+          {
+            vnode: h("button", { className: "foo" }, "some-text"),
+            dom: "button",
+            output: [
+              {
+                vnode: "some-text",
+                dom: undefined,
+                output: [],
+              },
+            ],
+          },
+        ],
+      });
+    });
+  });
+
+  describe("flushRoot", () => {
+    it("flushes pending updates", () => {
+      const Widget = () => {
+        const [count, setCount] = useState(0);
+        const onClick = () => setCount((c) => c + 1);
+        return h("button", { onClick }, count);
+      };
+
+      const container = scratch.render(h(Widget));
+      const button = container.querySelector("button");
+
+      button.click();
+
+      assert.equal(button.textContent, "0");
+
+      flushRoot(container);
+
+      assert.equal(button.textContent, "1");
     });
   });
 });
