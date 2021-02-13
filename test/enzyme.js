@@ -203,6 +203,14 @@ describe("Enzyme testing API", () => {
       const wrapper = mount(h(Widget));
       assert.isTrue(wrapper.exists(Widget));
     });
+
+    it("matches all custom components in tree", () => {
+      const Widget = () => null;
+      const wrapper = mount(
+        h("div", {}, "Some text", h(Widget), h(Widget), "Some other text")
+      );
+      assert.equal(wrapper.find(Widget).length, 2);
+    });
   });
 
   describe("prop selector matching", () => {
@@ -231,6 +239,21 @@ describe("Enzyme testing API", () => {
           foo: "b",
         })
       );
+    });
+
+    it("matches all components with matching props in tree", () => {
+      const Widget = () => null;
+      const wrapper = mount(
+        h(
+          "div",
+          {},
+          "Some text",
+          h(Widget, { foo: "test" }),
+          h(Widget, { foo: "test" }),
+          "Some other text"
+        )
+      );
+      assert.equal(wrapper.find({ foo: "test" }).length, 2);
     });
   });
 
@@ -584,6 +607,13 @@ describe("Enzyme testing API", () => {
         const wrapper = mount(h("div", { className: "foo" }));
         assert.isFalse(wrapper.hasClass("bar"));
       });
+
+      it("throws if node is not a DOM element", () => {
+        const wrapper = mount(h("div", {}, "Test"));
+        assert.throws(() => {
+          wrapper.children().at(0).hasClass("foo");
+        }, "Not a DOM element");
+      });
     });
 
     describe("#html", () => {
@@ -621,6 +651,13 @@ describe("Enzyme testing API", () => {
       it("returns the component's key", () => {
         const wrapper = mount(h("li", { key: "abc" }));
         assert.equal(wrapper.key(), "abc");
+      });
+
+      it("throws if called on a text node", () => {
+        const wrapper = mount(h("div", {}, "test"));
+        assert.throws(() => {
+          wrapper.find("div").children().at(0).key();
+        }, "Component is not a DOM or custom component");
       });
     });
 
@@ -703,6 +740,13 @@ describe("Enzyme testing API", () => {
         }, `props() called on a wrapper with 0 nodes. Must have one node.`);
       });
 
+      it("throws if node is not a DOM or custom component", () => {
+        const wrapper = mount(h("div", {}, "Test"));
+        assert.throws(() => {
+          wrapper.children().at(0).props();
+        }, "Component is not a DOM or custom component");
+      });
+
       it("throws if the wrapper has multiple nodes", () => {
         const wrapper = mount(h(Fragment, {}, h("div"), h("div"))).find("div");
         assert.throws(() => {
@@ -724,6 +768,22 @@ describe("Enzyme testing API", () => {
         });
         assert.equal(node.href, "https://foobar.org/");
         assert.equal(node.className, "test");
+      });
+
+      it("throws if node is not a DOM or custom component", () => {
+        const wrapper = mount("test");
+        assert.throws(() => {
+          wrapper.setProps({});
+        }, "Component is not a DOM or custom component");
+      });
+
+      it("re-renders the root if called on a non-root component", () => {
+        const Widget = ({ text }) => h("div", {}, text);
+        const wrapper = mount(h(Widget, { text: "foobar" }));
+
+        wrapper.find("div").setProps({ text: "test" });
+
+        assert.equal(wrapper.text(), "test");
       });
 
       it("flushes state updates and effects", () => {
@@ -857,6 +917,15 @@ describe("Enzyme testing API", () => {
       });
     });
 
-    // TODO - #update
+    describe("#update", () => {
+      it("throws error if component is unmounted", () => {
+        const wrapper = mount(h("div"));
+        wrapper.unmount();
+
+        assert.throws(() => {
+          wrapper.update();
+        }, "Component is unmounted");
+      });
+    });
   });
 });

@@ -70,18 +70,19 @@ function elementName(vnode: VNode): string {
 function debugTree(c: BaseComponent): string {
   if (isTextVNode(c.vnode)) {
     return c.vnode.toString();
-  } else if (isValidElement(c.vnode)) {
-    let result = `<${elementName(c.vnode)}`;
+  } else {
+    // Assume `c.vnode` is a valid element here because non-text/element vnodes
+    // are stripped by `cloneTree`.
+    const vnode = c.vnode as VNode;
+    let result = `<${elementName(vnode)}`;
     if (c.output.length === 0) {
       result += "/>";
     } else {
       result += ">";
       result += c.output.map(debugTree);
-      result += `</${elementName(c.vnode)}>`;
+      result += `</${elementName(vnode)}>`;
     }
     return result;
-  } else {
-    return "";
   }
 }
 
