@@ -11,6 +11,7 @@ import {
 import { ContextProvider } from "./context.js";
 import { HookState, Task, setHookState } from "./hooks.js";
 import { diffElementProps } from "./dom-props.js";
+import { arraysEqual } from "./diff-utils.js";
 
 /** Types of DOM node which a component can render. */
 export type DOMOutput = Element | Text;
@@ -125,6 +126,18 @@ function forEachDomRoot(c: Component, visit: (node: DOMOutput) => void) {
   } else if (c.domRoots !== null) {
     c.domRoots.forEach(visit);
   }
+}
+
+function updateDomRoots(c: Component) {
+  const newRoots = [];
+  for (let child of c.output) {
+    if (child.dom !== null) {
+      newRoots.push(child.dom);
+    } else if (child.domRoots !== null) {
+      newRoots.push(...child.domRoots);
+    }
+  }
+  c.domRoots = newRoots;
 }
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -632,6 +645,7 @@ class Root {
         } else {
           parentDom = this.container;
         }
+        const prevDomRoots = component.domRoots!;
 
         // Re-render the updated component.
         this._diff(
@@ -641,6 +655,15 @@ class Root {
           parentDom,
           insertAfter
         );
+
+        // Update `domRoots` of any non-DOM parents.
+        if (!arraysEqual(prevDomRoots, component.domRoots!)) {
+          let parent = component.parent;
+          while (parent && !parent.dom) {
+            updateDomRoots(parent);
+            parent = parent.parent;
+          }
+        }
       }
 
       this._flush(Task.RunLayoutEffects);

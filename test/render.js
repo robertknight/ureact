@@ -818,6 +818,45 @@ describe("rendering", () => {
         "<div><div></div><span></span><button>1</button><p></p></div>"
       );
     });
+
+    it("inserts DOM nodes at correct position when DOM roots of children change", () => {
+      const setChildVisible = {};
+
+      // `Child` is a component whose DOM roots depend on its state.
+      const Child = ({ id }) => {
+        const [visible, setVisible] = useState(false);
+
+        setChildVisible[id] = setVisible;
+
+        return visible ? h("div", {}, "Child-" + id) : null;
+      };
+
+      // `Parent` is a component whose DOM roots depend on the DOM roots of
+      // its children. This means that after a state update in `Child`, the DOM
+      // roots of `Parent` need to be recalculated.
+      const Parent = ({ id }) => {
+        return h(Child, { id });
+      };
+
+      const Root = () => {
+        return h("div", {}, h(Parent, { id: "A" }), h(Parent, { id: "B" }));
+      };
+
+      const container = scratch.render(h(Root));
+
+      act(() => {
+        // Update the `Child` components. In order to position them correctly
+        // in the updated tree, the DOM roots of the `Parent` parents will also
+        // need to be updated.
+        setChildVisible["A"](true);
+        setChildVisible["B"](true);
+      });
+
+      assert.equal(
+        container.innerHTML,
+        "<div><div>Child-A</div><div>Child-B</div></div>"
+      );
+    });
   });
 
   describe("unmountComponentAtNode", () => {
