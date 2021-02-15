@@ -109,6 +109,7 @@ interface ErrorBoundaryVNode extends VNode {
   props: ErrorBoundaryProps;
 }
 
+/** Special component that catches unhandled errors in descendants. */
 export function ErrorBoundary({ children }: ErrorBoundaryProps) {
   return children;
 }
@@ -128,6 +129,10 @@ function forEachDomRoot(c: Component, visit: (node: DOMOutput) => void) {
   }
 }
 
+/**
+ * Update the `domRoots` of a custom component to match its currently rendered
+ * output. This must be called after any child custom components are re-rendered.
+ */
 function updateDomRoots(c: Component) {
   const newRoots = [];
   for (let child of c.output) {
@@ -142,6 +147,9 @@ function updateDomRoots(c: Component) {
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
+/**
+ * Map between container elements and render roots.
+ */
 const activeRoots = new Map<Element, Root>();
 
 interface RenderError {
@@ -149,6 +157,9 @@ interface RenderError {
   handled: boolean;
 }
 
+/**
+ * Ensure a DOM `node` is located at a given position in the DOM.
+ */
 function insertNodeAfter(node: Node, parent: Element, after: Node | null) {
   const before = after ? after.nextSibling : parent.firstChild;
 
@@ -562,6 +573,9 @@ class Root {
     };
   }
 
+  /**
+   * Schedule re-rendering or effects for a component.
+   */
   _schedule(component: Component, task: Task) {
     const queue = this._queues[task];
     const isScheduled = queue.size > 0;
@@ -582,6 +596,9 @@ class Root {
     }
   }
 
+  /**
+   * Flush pending updates or effects.
+   */
   _flush(task: Task) {
     const queue = this._queues[task];
 
@@ -688,6 +705,9 @@ class Root {
     }
   }
 
+  /**
+   * Remove a component from the DOM and run any associated cleanup.
+   */
   _unmount(component: Component, isUnmountingAncestor = false) {
     if (isValidElement(component.vnode)) {
       // Run cleanup that only applies to DOM and custom components.

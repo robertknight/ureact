@@ -89,6 +89,9 @@ export function isValidElement(obj: any): obj is VNode {
   return obj != null && obj.$$typeof === elementSymbol;
 }
 
+/**
+ * Convert the output or children of a component into a flat array.
+ */
 export function flattenChildren(children: VNodeChildren): VNodeChild[] {
   if (!Array.isArray(children)) {
     return [children];

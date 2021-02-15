@@ -15,6 +15,9 @@ export function shallowEqual(a: any, b: any) {
   return true;
 }
 
+/**
+ * Return true if two arrays are shallow-equal.
+ */
 export function arraysEqual<T>(a: T[], b: T[]) {
   return a.length === b.length && a.every((v, i) => b[i] === v);
 }
