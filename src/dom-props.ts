@@ -9,13 +9,32 @@ interface UReactElement extends Element {
 // List of flags used by `PropMeta`.
 const PROP_CAPTURE_EVENT = 2;
 
-type DOMPropType = "property" | "attribute" | "event" | "styles" | "html";
+/**
+ * Enum specifying how a JSX prop is mapped to a DOM element.
+ */
+const enum DOMPropType {
+  /** Set a DOM property. */
+  Property = 1,
+
+  /** Set an element attribute. */
+  Attribute = 2,
+
+  /** Add an event handler. */
+  Event = 3,
+
+  /** Set inline styles via the `style` DOM property. */
+  Styles = 4,
+
+  /** Set raw HTML. */
+  HTML = 5,
+}
 
 /** Metadata about a DOM property, attribute or event listener. */
 interface PropMeta {
-  /** Name of the prop. */
+  /** Name of the JSX prop. */
   name: string;
 
+  /** How to map this property to a DOM element property, attribute or event. */
   type: DOMPropType;
 
   /** Name of DOM property, attribute or event. */
@@ -61,11 +80,11 @@ function getPropertyMeta(el: Element, prop: string): PropMeta {
   let flags = 0;
 
   if (prop === "style") {
-    type = "styles";
+    type = DOMPropType.Styles;
   } else if (prop === "dangerouslySetInnerHTML") {
-    type = "html";
+    type = DOMPropType.HTML;
   } else if (prop.startsWith("on")) {
-    type = "event";
+    type = DOMPropType.Event;
 
     if (prop.endsWith("Capture")) {
       flags |= PROP_CAPTURE_EVENT;
@@ -98,9 +117,9 @@ function getPropertyMeta(el: Element, prop: string): PropMeta {
     // then we'll write directly to the DOM property, otherwise fallback to
     // using an attribute.
     if (descriptor && (descriptor.writable || descriptor.set)) {
-      type = "property";
+      type = DOMPropType.Property;
     } else {
-      type = "attribute";
+      type = DOMPropType.Attribute;
 
       // For SVG elements the `className` property exists but is not writable.
       // Therefore we fall back to the corresponding attribute, which has a different
@@ -146,20 +165,20 @@ function setEventListener(
 
 function unsetProperty(el: Element, prop: PropMeta) {
   switch (prop.type) {
-    case "property":
+    case DOMPropType.Property:
       (el as any)[prop.name] = "";
       break;
-    case "attribute":
+    case DOMPropType.Attribute:
       el.removeAttribute(prop.domName);
       break;
-    case "event":
+    case DOMPropType.Event:
       const noopListener = () => {};
       setEventListener(el, prop, noopListener);
       break;
-    case "styles":
+    case DOMPropType.Styles:
       (el as HTMLElement).style.cssText = "";
       break;
-    case "html":
+    case DOMPropType.HTML:
       el.innerHTML = "";
       break;
   }
@@ -213,21 +232,21 @@ function setProperty(
   newValue: any
 ) {
   switch (prop.type) {
-    case "property":
+    case DOMPropType.Property:
       (el as any)[prop.name] = newValue;
       break;
-    case "attribute":
+    case DOMPropType.Attribute:
       el.setAttribute(prop.domName, newValue);
       break;
-    case "event":
+    case DOMPropType.Event:
       setEventListener(el, prop, newValue);
       break;
-    case "html":
+    case DOMPropType.HTML:
       if (oldValue?.__html !== newValue.__html) {
         el.innerHTML = newValue.__html;
       }
       break;
-    case "styles":
+    case DOMPropType.Styles:
       updateInlineStyles(el as HTMLElement, oldValue || {}, newValue);
       break;
   }
