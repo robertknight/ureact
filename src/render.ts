@@ -215,11 +215,14 @@ class Root {
   /** The DOM `Document` to which `container` belongs. */
   private _document: Document;
 
-  /**
-   * Map of `Task` enum to queue of components which has that task pending.
-   * This is used to track components which need to be updated, run effects etc.
-   */
-  private _queues: Set<Component>[];
+  /** Components with pending state updates that need to be re-rendered. */
+  private _pendingUpdate: Set<Component>;
+
+  /** Components with pending layout effects that need to be run. */
+  private _pendingLayoutEffects: Set<Component>;
+
+  /** Components with pending effects that need to be run. */
+  private _pendingEffects: Set<Component>;
 
   /**
    * Error thrown during the current render or other invocation of user code
@@ -242,9 +245,9 @@ class Root {
     this._rootComponent = null;
     this._document = container.ownerDocument;
 
-    // Make three task queues for `Task.Update`, `Task.RunEffects` and
-    // `Task.RunLayoutEffects`.
-    this._queues = [new Set(), new Set(), new Set()];
+    this._pendingUpdate = new Set();
+    this._pendingLayoutEffects = new Set();
+    this._pendingEffects = new Set();
 
     this._currentError = null;
     this._rendering = null;
@@ -290,7 +293,7 @@ class Root {
       this.container,
       null
     );
-    this._flush(Task.RunLayoutEffects);
+    this._flushEffects(Task.RunLayoutEffects);
     this._handlePendingError();
   }
 
@@ -301,8 +304,14 @@ class Root {
    * component tree is unmounted and the error is re-thrown.
    */
   flush() {
-    while (this._queues.some((q) => q.size > 0)) {
-      this._queues.forEach((_, task) => this._flush(task));
+    while (
+      this._pendingUpdate.size > 0 ||
+      this._pendingLayoutEffects.size > 0 ||
+      this._pendingEffects.size > 0
+    ) {
+      this._flushUpdates();
+      this._flushEffects(Task.RunLayoutEffects);
+      this._flushEffects(Task.RunEffects);
     }
   }
 
@@ -327,7 +336,7 @@ class Root {
     // Update the existing component if there is one and the types match.
     if (component) {
       const prevVnode = component.vnode;
-      if (prevVnode === vnode && !this._queues[Task.Update].has(component)) {
+      if (prevVnode === vnode && !this._pendingUpdate.has(component)) {
         // Bail out if vnode is same as previous render, unless there is a pending
         // state update for this component.
         return component;
@@ -518,7 +527,7 @@ class Root {
   }
 
   _renderCustom(vnode: VNode, component: Component) {
-    this._queues[Task.Update].delete(component);
+    this._pendingUpdate.delete(component);
 
     this._rendering = component;
     this._rendering.hooks?.resetIndex();
@@ -573,11 +582,22 @@ class Root {
     };
   }
 
+  _taskQueue(task: Task) {
+    switch (task) {
+      case Task.Update:
+        return this._pendingUpdate;
+      case Task.RunLayoutEffects:
+        return this._pendingLayoutEffects;
+      case Task.RunEffects:
+        return this._pendingEffects;
+    }
+  }
+
   /**
    * Schedule re-rendering or effects for a component.
    */
   _schedule(component: Component, task: Task) {
-    const queue = this._queues[task];
+    const queue = this._taskQueue(task);
     const isScheduled = queue.size > 0;
 
     queue.add(component);
@@ -585,10 +605,10 @@ class Root {
     if (!isScheduled) {
       switch (task) {
         case Task.Update:
-          queueMicrotask(() => this._flush(task));
+          queueMicrotask(() => this._flushUpdates());
           break;
         case Task.RunEffects:
-          scheduleAfterRender(() => this._flush(task));
+          scheduleAfterRender(() => this._flushEffects(task));
           break;
         // Layout effects are run synchronously at the end of render, so
         // no flush is scheduled for them here.
@@ -596,27 +616,23 @@ class Root {
     }
   }
 
-  /**
-   * Flush pending updates or effects.
-   */
-  _flush(task: Task) {
-    const queue = this._queues[task];
-
-    if (task === Task.RunLayoutEffects || task === Task.RunEffects) {
-      for (let component of queue) {
-        try {
-          component.hooks!.run(task);
-        } catch (err) {
-          this._invokeErrorHandler(component, err);
-        }
+  _flushEffects(task: Task) {
+    const queue = this._taskQueue(task);
+    for (let component of queue) {
+      try {
+        component.hooks!.run(task);
+      } catch (err) {
+        this._invokeErrorHandler(component, err);
       }
-      queue.clear();
-      this._handlePendingError();
-      return;
     }
+    queue.clear();
+    this._handlePendingError();
+  }
 
-    // Flush updates. This process may trigger additional state changes, so we
+  _flushUpdates() {
+    // Flushing updates may trigger additional state changes, so we
     // loop until the update queue is empty.
+    const queue = this._pendingUpdate;
     while (queue.size > 0) {
       const pending = [...queue];
       pending.sort((a, b) => a.depth - b.depth);
@@ -683,7 +699,7 @@ class Root {
         }
       }
 
-      this._flush(Task.RunLayoutEffects);
+      this._flushEffects(Task.RunLayoutEffects);
     }
 
     this._handlePendingError();
@@ -725,7 +741,10 @@ class Root {
 
       // Run cleanup that only applies to custom components.
       if (typeof component.vnode.type === "function") {
-        this._queues.forEach((q) => q.delete(component));
+        this._pendingUpdate.delete(component);
+        this._pendingLayoutEffects.delete(component);
+        this._pendingEffects.delete(component);
+
         try {
           component.hooks?.cleanup();
         } catch (err) {
