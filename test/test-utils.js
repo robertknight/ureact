@@ -35,10 +35,12 @@ describe("test-utils", () => {
         return value;
       };
 
-      const container = scratch.render(h(Widget));
-      assert.equal(container.innerHTML, "0");
+      let container;
 
-      act(() => {});
+      act(() => {
+        container = scratch.render(h(Widget));
+        assert.equal(container.innerHTML, "0");
+      });
 
       assert.equal(container.innerHTML, "10");
     });
@@ -52,10 +54,10 @@ describe("test-utils", () => {
         return null;
       };
 
-      const container = scratch.render(h(Widget));
-      assert.equal(effectCount, 0);
-
-      act(() => {});
+      act(() => {
+        scratch.render(h(Widget));
+        assert.equal(effectCount, 0);
+      });
 
       assert.equal(effectCount, 1);
     });

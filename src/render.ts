@@ -147,10 +147,19 @@ function updateDomRoots(c: Component) {
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
+/** Map between container elements and render roots. */
+const activeRoots = new WeakMap<Element, Root>();
+
 /**
- * Map between container elements and render roots.
+ * Set of roots which have pending updates or effects that need to be flushed.
+ *
+ * This is used by tests and only populated when `enabled` is set to avoid
+ * holding onto references to roots after the container is removed frm the DOM.
  */
-const activeRoots = new Map<Element, Root>();
+export const dirtyRoots = {
+  roots: new Set<Root>(),
+  enabled: false,
+};
 
 interface RenderError {
   error: Error;
@@ -313,6 +322,7 @@ class Root {
       this._flushEffects(Task.RunLayoutEffects);
       this._flushEffects(Task.RunEffects);
     }
+    dirtyRoots.roots.delete(this);
   }
 
   getOutput(): BaseComponent | null {
@@ -613,6 +623,9 @@ class Root {
         // Layout effects are run synchronously at the end of render, so
         // no flush is scheduled for them here.
       }
+      if (dirtyRoots.enabled) {
+        dirtyRoots.roots.add(this);
+      }
     }
   }
 
@@ -757,13 +770,6 @@ class Root {
       forEachDomRoot(component, (node) => node.remove());
     }
   }
-}
-
-/**
- * Return all the `Root`s for currently mounted component trees.
- */
-export function getRoots() {
-  return activeRoots.values();
 }
 
 /**

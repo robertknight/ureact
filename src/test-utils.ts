@@ -1,4 +1,4 @@
-import { getRoots } from "./render.js";
+import { dirtyRoots } from "./render.js";
 
 let actDepth = 0;
 
@@ -8,7 +8,8 @@ function flushAllRoots() {
     return;
   }
 
-  for (let root of getRoots()) {
+  dirtyRoots.enabled = false;
+  for (let root of dirtyRoots.roots) {
     root.flush();
   }
 }
@@ -16,7 +17,9 @@ function flushAllRoots() {
 export function act(
   callback: (() => void) | (() => Promise<any>)
 ): void | Promise<void> {
-  ++actDepth;
+  if (++actDepth === 1) {
+    dirtyRoots.enabled = true;
+  }
 
   let result;
   try {
