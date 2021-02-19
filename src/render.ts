@@ -154,7 +154,7 @@ const activeRoots = new WeakMap<Element, Root>();
  * Set of roots which have pending updates or effects that need to be flushed.
  *
  * This is used by tests and only populated when `enabled` is set to avoid
- * holding onto references to roots after the container is removed frm the DOM.
+ * holding onto references to roots after the container is removed from the DOM.
  */
 export const dirtyRoots = {
   roots: new Set<Root>(),
