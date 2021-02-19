@@ -573,9 +573,16 @@ class Wrapper {
     return this._wrap(this._components[index]);
   }
 
+  childAt(index: number): Wrapper {
+    const children = this._getChildren();
+    if (index < 0 || index >= children.length) {
+      throw new Error("Index is invalid");
+    }
+    return this._wrap(children[index]);
+  }
+
   children(): Wrapper {
-    const children = this._components.map((c) => c.output).flat();
-    return this._wrap(children);
+    return this._wrap(this._getChildren());
   }
 
   contains(node: VNodeChild): boolean {
@@ -791,6 +798,10 @@ class Wrapper {
       throw new Error("Component is unmounted");
     }
     this._components = cloneTree([root]);
+  }
+
+  _getChildren() {
+    return this._components.map((c) => c.output).flat();
   }
 
   _singleComponent(context: string): BaseComponent {

@@ -309,6 +309,32 @@ describe("Enzyme testing API", () => {
       });
     });
 
+    describe("#childAt", () => {
+      it("returns a wrapper around the specified child", () => {
+        const wrapper = mount(
+          h(Fragment, {}, h("p", {}, "First child"), h("p", {}, "Second child"))
+        );
+
+        const child = wrapper.childAt(1);
+
+        assert.equal(child.debug(), "<p>Second child</p>");
+      });
+
+      it("throws if index is invalid", () => {
+        const wrapper = mount(h(Fragment, {}, h("div")));
+
+        assert.throws(() => {
+          wrapper.childAt(-1);
+        }, "Index is invalid");
+
+        wrapper.childAt(0); // Should not throw
+
+        assert.throws(() => {
+          wrapper.childAt(1);
+        }, "Index is invalid");
+      });
+    });
+
     describe("#children", () => {
       it("returns a wrapper around the children of current nodes in the wrapper", () => {
         const wrapper = mount(
