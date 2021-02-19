@@ -133,5 +133,26 @@ describe("test-utils", () => {
 
       testActWorks();
     });
+
+    it("flushes updates if there were pending updates before the `act` call", () => {
+      const Widget = () => {
+        const [count, setCount] = useState(0);
+        return h("button", { onClick: () => setCount((c) => c + 1) }, count);
+      };
+
+      const container = scratch.render(h(Widget));
+      const button = container.querySelector("button");
+
+      // Schedule an update outside of `act`. This is usually a coding mistake
+      // in the test, but it shouldn't stop subsequent updates scheduled within
+      // an `act` callback from working.
+      button.click();
+
+      act(() => {
+        button.click();
+      });
+
+      assert.equal(container.innerHTML, "<button>2</button>");
+    });
   });
 });

@@ -623,9 +623,10 @@ class Root {
         // Layout effects are run synchronously at the end of render, so
         // no flush is scheduled for them here.
       }
-      if (dirtyRoots.enabled) {
-        dirtyRoots.roots.add(this);
-      }
+    }
+
+    if (dirtyRoots.enabled) {
+      dirtyRoots.roots.add(this);
     }
   }
 
