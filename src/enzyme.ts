@@ -688,6 +688,12 @@ class Wrapper {
     return this.getDOMNode();
   }
 
+  is(query: Selector): boolean {
+    const parsed = new SelectorMatcher(query);
+    const c = this._singleComponent("is");
+    return parsed.findMatches(c).includes(c);
+  }
+
   isEmptyRender() {
     return this.html() === "";
   }

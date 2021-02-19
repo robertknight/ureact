@@ -658,6 +658,25 @@ describe("Enzyme testing API", () => {
       });
     });
 
+    describe("#is", () => {
+      it("returns true if node matches selector", () => {
+        const wrapper = mount(h("div"));
+        assert.isTrue(wrapper.is("div"));
+      });
+
+      it("returns false if node does not match selector", () => {
+        const wrapper = mount(h("div"));
+        assert.isFalse(wrapper.is("span"));
+      });
+
+      it("throws if wrapper has more than one component", () => {
+        const wrapper = mount(h("div", {}, h("div"), h("div")));
+        assert.throws(() => {
+          wrapper.children().is("div");
+        }, /Must have one node/);
+      });
+    });
+
     describe("#isEmptyRender", () => {
       it("returns true if no concrete output was produced", () => {
         const Empty = () => null;
