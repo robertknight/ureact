@@ -533,7 +533,10 @@ function unique<T>(array: T[]): T[] {
  * and query it.
  *
  * The API implemented here is a subset of the "Full Rendering API" from Enzyme.
- * See https://github.com/enzymejs/enzyme/blob/master/docs/api/mount.md
+ * See https://github.com/enzymejs/enzyme/blob/master/docs/api/mount.md. This
+ * subset excludes methods which are not applicable to components written using
+ * the hooks API (eg. `state`, `setState`, `ref`, `context`, `setContext`).
+ * There are also a number of lesser-used methods that are not yet implemented.
  */
 class Wrapper {
   /** The root wrapper for the component at the top of the render tree. */
@@ -585,13 +588,25 @@ class Wrapper {
     return this._wrap(this._getChildren());
   }
 
+  // closest(selector) - NOT YET IMPLEMENTED
+
   contains(node: VNodeChild): boolean {
     return this._components.some((c) => treeContains(c, node));
   }
 
+  // containsMatchingElement(node) - NOT YET IMPLEMENTED
+  // containsAllMatchingElements(nodes) - NOT YET IMPLEMENTED
+  // containsAnyMatchingElements(nodes) - NOT YET IMPLEMENTED
+  // context() - WILL NOT IMPLEMENT
+
   debug(): string {
     return this._components.map(debugTree).join("\n");
   }
+
+  // detach() - NOT YET IMPLEMENTED
+  // equals(node) - NOT YET IMPLEMENTED
+  // every(selector) - NOT YET IMPLEMENTED
+  // everyWhere(predicate) - NOT YET IMPLEMENTED
 
   exists(query?: Selector): boolean {
     if (query === undefined) {
@@ -647,6 +662,8 @@ class Wrapper {
     }
   }
 
+  // get(index) - NOT YET IMPLEMENTED
+
   getDOMNode(): Element | Text {
     const c = this._singleComponent("getDOMNode");
     const nodes = [] as (Element | Text)[];
@@ -656,6 +673,8 @@ class Wrapper {
     }
     return nodes[0];
   }
+
+  // getWrappingComponent() - NOT YET IMPLEMENTED
 
   hasClass(className: string): boolean {
     const node = this.getDOMNode();
@@ -683,6 +702,8 @@ class Wrapper {
 
     return html;
   }
+
+  // hostNodes() - NOT YET IMPLEMENTED
 
   instance() {
     return this.getDOMNode();
@@ -722,6 +743,12 @@ class Wrapper {
     return results;
   }
 
+  // matchesElement(node) - NOT YET IMPLEMENTED
+  // name() - NOT YET IMPLEMENTED
+  // not(selector) - NOT YET IMPLEMENTED
+  // parents(selector) - NOT YET IMPLEMENTED
+  // parent() - NOT YET IMPLEMENTED
+
   prop(name: string) {
     return this.props()[name];
   }
@@ -733,6 +760,12 @@ class Wrapper {
     }
     return c.vnode.props;
   }
+
+  // reduce(callback) - NOT YET IMPLEMENTED
+  // reduceRight(callback) - NOT YET IMPLEMENTED
+  // ref(name) - WILL NOT IMPLEMENT
+  // render() - NOT IMPLEMENTED
+  // renderProp(key) - NOT IMPLEMENTED
 
   setProps(props: object) {
     if (this !== this._root) {
@@ -750,6 +783,10 @@ class Wrapper {
     this.update();
   }
 
+  // setContext() - WILL NOT IMPLEMENT
+  // setState() - WILL NOT IMPLEMENT
+  // slice() - NOT YET IMPLEMENTED
+
   simulate(eventName: string, args: EventInit = {}) {
     const { bubbles, cancelable, composed, ...rest } = args;
     const event = new Event(eventName, {
@@ -764,6 +801,10 @@ class Wrapper {
 
     this.update();
   }
+
+  // some(selector) - NOT YET IMPLEMENTED
+  // someWhere(predicate) - NOT YET IMPLEMENTED
+  // state() - WILL NOT IMPLEMENT
 
   text(): string {
     let text = "";
