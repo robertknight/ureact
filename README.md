@@ -1,14 +1,16 @@
 # ureact
 
 ureact is an implementation of the modern [React](https://reactjs.org/) APIs
-for building UI components in web applications. It is intended to be a small,
-simple and straightforward implementation. It may be of interest if you want
-to get a sense of how the React APIs can be implemented, although note that the
-actual implementation of React 16+ is quite different (and more complex).
+for building UI components in web applications. Its goals are to be small,
+simple and self-contained. It may be of interest if you want to get a sense of how
+the core modern React APIs can be implemented.
 
-This was created as a personal project to keep me busy for a weekend in December 2020.
-If you are looking for a project with somewhat similar goals that is actively supported
-by a community of contributors, check out [Preact](https://preactjs.com).
+ureact also includes an implementation of the [Enzyme](https://github.com/enzymejs/enzyme)
+testing library.
+
+This was created as a personal project. If you are looking for a small React
+implementation that is actively maintained and suitable for use in production,
+check out [Preact](https://preactjs.com).
 
 ## Supported features
 
