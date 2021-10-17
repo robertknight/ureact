@@ -22,9 +22,10 @@ export function memo(component: (p: Props) => VNodeChildren) {
       }
     }
 
-    const result = useMemo(() => component(prevProps.current), [
-      prevProps.current,
-    ]);
+    const result = useMemo(
+      () => component(prevProps.current),
+      [prevProps.current]
+    );
     return result;
   };
   wrapper.displayName = `memo(${component.name})`;

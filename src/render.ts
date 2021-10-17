@@ -548,7 +548,7 @@ class Root {
       output = (vnode.type as Function).call(null, vnode.props);
     } catch (err) {
       output = null;
-      this._invokeErrorHandler(component, err);
+      this._invokeErrorHandler(component, err as Error);
     }
 
     this._rendering = null;
@@ -581,7 +581,7 @@ class Root {
           break;
         }
       } catch (boundaryError) {
-        error = boundaryError;
+        error = boundaryError as Error;
       }
       errorHandler = errorHandler.parent;
     }
@@ -636,7 +636,7 @@ class Root {
       try {
         component.hooks!.run(task);
       } catch (err) {
-        this._invokeErrorHandler(component, err);
+        this._invokeErrorHandler(component, err as Error);
       }
     }
     queue.clear();
@@ -762,7 +762,7 @@ class Root {
         try {
           component.hooks?.cleanup();
         } catch (err) {
-          this._invokeErrorHandler(component, err);
+          this._invokeErrorHandler(component, err as Error);
         }
       }
     }
