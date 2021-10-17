@@ -20,8 +20,8 @@
   "scripts": {
     "build": "tsc",
     "package": "rollup -c",
-    "checkformatting": "prettier --check **/*.{js,ts}",
-    "format": "prettier --list-different --write **/*.{js,ts}",
+    "checkformatting": "prettier --check *.js **/*.{js,ts}",
+    "format": "prettier --list-different --write *.js **/*.{js,ts}",
     "test": "c8 mocha"
   },
   "files": [

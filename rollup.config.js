@@ -7,8 +7,6 @@ export default [
       "build/jsx-dev-runtime",
       "build/test-utils.js",
     ],
-    output: [
-      { dir: "dist/", format: "esm", chunkFileNames: "core.js" },
-    ],
+    output: [{ dir: "dist/", format: "esm", chunkFileNames: "core.js" }],
   },
 ];
