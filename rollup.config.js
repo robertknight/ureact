@@ -8,8 +8,7 @@ export default [
       "build/test-utils.js",
     ],
     output: [
-      { dir: "dist/", format: "cjs", chunkFileNames: "core.js" },
-      { dir: "dist/esm", format: "esm", chunkFileNames: "core.js" },
+      { dir: "dist/", format: "esm", chunkFileNames: "core.js" },
     ],
   },
 ];
